@@ -1,0 +1,20 @@
+/* 진행자 화면 (교육장 큰 화면에 띄우는 용도) */
+body.host { word-break: keep-all; }
+#host { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; display: flex; flex-direction: column; gap: 20px; }
+.h-create { max-width: 560px; margin: 40px auto; display: flex; flex-direction: column; gap: 14px; }
+.h-create h1 { margin: 0; font-size: 26px; }
+.h-create label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.h-create input, .h-notice textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); font: inherit; }
+.h-top { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.h-code { text-align: center; }
+.h-big { font-size: clamp(64px, 10vw, 120px); font-weight: 700; letter-spacing: .15em; margin: 0; line-height: 1.1; color: var(--red-ink); font-variant-numeric: tabular-nums; }
+.h-link { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; font-size: 14px; overflow-wrap: anywhere; }
+.h-stat { font-weight: 700; color: var(--muted-ink); }
+.h-notice { display: flex; flex-direction: column; gap: 10px; }
+.h-notice h2, .h-grid h2, #host > .card h2 { margin: 0 0 12px; font-size: 20px; }
+.h-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.h-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+.h-feed { max-height: 460px; overflow-y: auto; padding: 4px; }
+.h-foot { display: flex; gap: 10px; justify-content: flex-end; }
+@media (max-width: 860px) { .h-top, .h-grid { grid-template-columns: 1fr; } }
+.h-feed, .h-grid .card { text-align: left; }
