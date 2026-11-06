@@ -952,6 +952,7 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
  *  팀 대항전: 접속자 · 단서 나눔 · 투표 · 역할 · 소통 창 · 현황판
  * ═════════════════════════════════════════ */
 #f-code { width: 150px; letter-spacing: .2em; font-weight: 700; }
+#f-code::placeholder { letter-spacing: 0; font-weight: 400; }
 .cine-msg { flex: 1 1 100%; min-height: 1.4em; margin: 0; font-size: 14px; color: #FFE0A3; }
 
 .teambar { display: flex; align-items: center; gap: 10px; margin-left: auto; margin-right: 12px; font-size: 14px; min-width: 0; }
@@ -1053,3 +1054,12 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
 .lw-card { margin: 0; padding: 14px; border-radius: 14px; background: #FFF8EE; border: 1px solid #F6DDB8; }
 .lw-card blockquote { margin: 0 0 8px; font-size: 15px; line-height: 1.55; }
 .lw-card figcaption { font-size: 12px; color: var(--sub); }
+
+/* 경쟁·상생 */
+.envoy-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--good-ink); color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.b-time { display: flex; flex-direction: column; align-items: flex-end; }
+.b-time small { font-size: 11px; font-weight: 600; color: var(--good-ink); }
+.m.help small { display: block; margin-top: 4px; font-size: 12px; color: var(--good-ink); }
+.m.help .btn, .m.sos .btn { margin-top: 6px; }
+.h-quick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.nudge .row { margin-top: 8px; }

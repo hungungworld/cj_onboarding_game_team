@@ -78,6 +78,12 @@
         if (this.messages.length > 300) this.messages.shift();
         emit("message", p.new);
       });
+      // '도움 됐어요'처럼 메시지가 바뀐 경우
+      ch.on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: "session_id=eq." + sid }, (p) => {
+        const i = this.messages.findIndex((m) => m.id === p.new.id);
+        if (i >= 0) this.messages[i] = p.new;
+        emit("message", p.new, true);
+      });
       ch.on("presence", { event: "sync" }, () => {
         const st = ch.presenceState();
         this.online = Object.values(st).map((arr) => arr[0]).filter((x) => x && x.pid);
@@ -141,18 +147,39 @@
     myIndex() { return this.members().findIndex((p) => p.pid === this.me.pid); },
 
     /* 조별 현황판 */
+    // 시뮬레이션처럼 시간을 압축해 돌릴 때만 씀 (host.html?timescale=20 → 실제 3초 = 게임 1분)
+    timeScale: Number(new URLSearchParams(location.search).get("timescale")) || 1,
     STEPS: ["prologue", "room1", "room2", "room3", "room4", "room5", "act2", "act3", "ending"],
     STEP_LABEL: ["프롤로그", "로비", "회의실", "키친", "연구소", "라운지", "추리", "캡슐", "엔딩"],
+    /* 기록 = 걸린 시간 + 힌트·오답 벌점 − 상생 보너스 */
     progress(t) {
       const s = (t && t.state) || {};
       const idx = Math.max(0, this.STEPS.indexOf(s.scene));
-      const sec = s.start ? ((s.end || Date.now()) - s.start) / 1000 + (s.penalty || 0) : 0;
-      return { idx, label: s.start ? this.STEP_LABEL[idx] : "대기", pct: s.end ? 100 : Math.round((idx / (this.STEPS.length - 1)) * 100),
-        done: !!s.end, sec, hints: s.hintsUsed || 0, help: t.help_count || 0 };
+      const raw = s.start ? (((s.end || Date.now()) - s.start) / 1000) * this.timeScale : 0;
+      const sec = Math.max(0, raw + (s.penalty || 0) - (t.bonus || 0));
+      const solved = Object.keys(s.solved || {}).filter((k) => s.solved[k]).length;
+      return { idx, solved, label: s.start ? this.STEP_LABEL[idx] : "대기", pct: s.end ? 100 : Math.round((idx / (this.STEPS.length - 1)) * 100),
+        done: !!s.end, sec, hints: s.hintsUsed || 0, help: t.help_count || 0, thanks: t.thanks || 0, bonus: t.bonus || 0,
+        firsts: this.firstsOf(t.id) };
     },
+    /* 지점마다 가장 먼저 푼 조 { key: teamId } */
+    firsts() {
+      const best = {};
+      Object.values(this.teams).forEach((t) => {
+        const c = (t.state && t.state.clearedAt) || {};
+        Object.keys(c).forEach((k) => { if (c[k] && (!best[k] || c[k] < best[k].at)) best[k] = { at: c[k], team: t.id }; });
+      });
+      return best;
+    },
+    firstsOf(teamId) { const f = this.firsts(); return Object.keys(f).filter((k) => f[k].team === teamId).length; },
     ranking() {
       return Object.values(this.teams).map((t) => ({ t, p: this.progress(t) })).sort((a, b) =>
-        (b.p.done - a.p.done) || (a.p.done ? a.p.sec - b.p.sec : (b.p.idx - a.p.idx) || (a.p.sec - b.p.sec)));
+        (b.p.done - a.p.done) || (a.p.done ? a.p.sec - b.p.sec : (b.p.solved - a.p.solved) || (a.p.sec - b.p.sec)));
+    },
+    async thank(msgId) {
+      const { data, error } = await db.rpc("thank_help", { p_player: this.me.pid, p_secret: this.me.secret, p_msg: msgId });
+      if (error) throw new Error(error.message);
+      return data;
     },
     fmt(sec) { sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); },
     onlineOf(teamId) { return this.online.filter((p) => p.team === teamId); }

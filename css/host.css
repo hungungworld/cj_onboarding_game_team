@@ -18,3 +18,9 @@ body.host { word-break: keep-all; }
 .h-foot { display: flex; gap: 10px; justify-content: flex-end; }
 @media (max-width: 860px) { .h-top, .h-grid { grid-template-columns: 1fr; } }
 .h-feed, .h-grid .card { text-align: left; }
+.h-alert { display: block; margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: #FDECEA; color: var(--red-ink); }
+.awards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.aw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px; border-radius: 14px; background: #FFF8EE; border: 1px solid #F6DDB8; text-align: center; }
+.aw .ti { font-size: 24px; color: var(--orange-ink); }
+.aw small { font-size: 12px; color: var(--sub); }
+.aw span { font-size: 12px; color: var(--muted-ink); }

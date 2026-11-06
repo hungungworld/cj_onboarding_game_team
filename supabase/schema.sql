@@ -216,3 +216,22 @@ revoke all on function public._player_ok(uuid, text) from public, anon, authenti
 grant execute on function public.create_session(text), public.host_post(uuid, text, text), public.host_end(uuid, text),
   public.join_session(text, text, uuid, text, text), public.team_apply(uuid, uuid, text, jsonb),
   public.post_message(uuid, text, text, text, jsonb) to anon, authenticated;
+
+/* ───────── 상생 보너스: 도움을 받은 조가 '도움 됐어요'를 누르면 도와준 조 기록에서 30초 (최대 150초) ───────── */
+alter table public.teams add column if not exists bonus integer not null default 0;
+alter table public.teams add column if not exists thanks integer not null default 0;
+
+create or replace function public.thank_help(p_player uuid, p_secret text, p_msg bigint)
+returns json language plpgsql security definer set search_path = public as $$
+declare pl players%rowtype; m messages%rowtype; b int;
+begin
+  pl := _player_ok(p_player, p_secret);
+  if pl.id is null then raise exception '먼저 입장하세요'; end if;
+  select * into m from messages where id = p_msg for update;
+  if not found or m.scope <> 'help' or (m.meta->>'to')::uuid is distinct from pl.team_id then raise exception '우리 조에 온 도움이 아니에요'; end if;
+  if coalesce((m.meta->>'thanked')::boolean, false) then return json_build_object('ok', false); end if;
+  update messages set meta = meta || jsonb_build_object('thanked', true, 'thankedBy', pl.name) where id = m.id;
+  update teams set thanks = thanks + 1, bonus = least(bonus + 30, 150) where id = m.team_id returning bonus into b;
+  return json_build_object('ok', true, 'bonus', b);
+end $$;
+grant execute on function public.thank_help(uuid, text, bigint) to anon, authenticated;

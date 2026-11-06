@@ -96,14 +96,21 @@
     const rows = NET.ranking();
     const b = $("#h-board");
     if (!b) return;
-    $("#h-stat").innerHTML = `${ic("ti-users")} 접속 ${NET.online.length}명 · 조 ${rows.length}개 · 탈출 ${rows.filter((r) => r.p.done).length}조`;
+    // 진행자가 직접 가서 도와줄 곳: 선두 조의 SOS(도와줄 조가 없음)는 바로, 나머지는 2분 넘게 답이 없을 때
+    const helped = new Set(NET.messages.filter((m) => m.scope === "help").map((m) => String(m.meta.sos)));
+    const waiting = NET.messages.filter((m) => m.scope === "sos" && !helped.has(String(m.id))
+      && (m.meta.toHost || (Date.now() - new Date(m.created_at)) * NET.timeScale > 120000)
+      && !(NET.teams[m.team_id] && NET.teams[m.team_id].state.solved && NET.teams[m.team_id].state.solved[m.meta.key]));
+    $("#h-stat").innerHTML = `${ic("ti-users")} 접속 ${NET.online.length}명 · 조 ${rows.length}개 · 탈출 ${rows.filter((r) => r.p.done).length}조` +
+      (waiting.length ? `<span class="h-alert">${ic("ti-alert-triangle")} 진행자가 도와줄 SOS ${waiting.length}건: ${waiting.map((m) => `${esc(m.meta.team)}(${esc(NET.STEP_LABEL[NET.STEPS.indexOf(m.meta.key.startsWith("act3") ? "act3" : m.meta.key)] || m.meta.key)}${m.meta.toHost ? ", 선두" : ""})`).join(", ")}</span>` : "");
     b.innerHTML = rows.length ? `<ol class="ranks">${rows.map(({ t, p }, i) => {
       const people = NET.onlineOf(t.id);
       return `<li class="${p.done ? "done" : ""}"><span class="b-rank">${p.done ? i + 1 : "–"}</span>
         <div class="b-main"><b>${esc(t.name)}</b><span class="b-bar"><i style="width:${p.pct}%"></i></span>
-          <small>${p.done ? "탈출 완료" : esc(p.label)} · 힌트 ${p.hints} · 도움 ${p.help} · ${people.length ? people.map((x) => esc(x.name)).join(", ") : "접속자 없음"}</small></div>
-        <span class="b-time">${NET.fmt(p.sec)}</span></li>`;
-    }).join("")}</ol>` : `<p class="note">아직 입장한 조가 없어요.</p>`;
+          <small>${p.done ? "탈출 완료" : esc(p.label)} · 힌트 ${p.hints} · ${ic("ti-medal")} 첫 탈출 ${p.firsts} · ${ic("ti-heart-handshake")} 도움 ${p.help}회 (고마워요 ${p.thanks}) · ${people.length ? people.map((x) => esc(x.name)).join(", ") : "접속자 없음"}</small></div>
+        <span class="b-time">${NET.fmt(p.sec)}${p.bonus ? `<small>상생 −${NET.fmt(p.bonus)}</small>` : ""}</span></li>`;
+    }).join("")}</ol>
+      ${awards(rows)}` : `<p class="note">아직 입장한 조가 없어요.</p>`;
 
     const feed = NET.messages.filter((m) => ["all", "notice", "sos", "help"].includes(m.scope)).slice(-60);
     const f = $("#h-feed");
@@ -118,6 +125,19 @@
     const ls = NET.messages.filter((m) => m.scope === "letter");
     $("#h-wall").innerHTML = ls.map((m) => `<figure class="lw-card"><blockquote>${esc(m.body)}</blockquote><figcaption>${esc(m.author)} · ${esc(m.meta.team || "")}</figcaption></figure>`).join("")
       || `<p class="note">아직 편지가 없어요.</p>`;
+  }
+
+  // 시상 후보: 최단 기록 · 상생왕(고마워요를 가장 많이 받은 조) · 첫 탈출 메달왕
+  function awards(rows) {
+    const top = (f) => rows.slice().sort((a, b) => f(b) - f(a))[0];
+    const fast = rows.find((r) => r.p.done);
+    const kind = top((r) => r.p.thanks), first = top((r) => r.p.firsts);
+    const card = (icon, title, r, val) => `<div class="aw">${ic(icon)}<small>${title}</small><b>${r ? esc(r.t.name) : "—"}</b><span>${r ? val : ""}</span></div>`;
+    return `<div class="awards">
+      ${card("ti-trophy", "최단 기록", fast, fast ? NET.fmt(fast.p.sec) : "")}
+      ${card("ti-heart-handshake", "상생왕", kind && kind.p.thanks ? kind : null, kind ? `고마워요 ${kind.p.thanks}회` : "")}
+      ${card("ti-medal", "첫 탈출 메달왕", first && first.p.firsts ? first : null, first ? `메달 ${first.p.firsts}개` : "")}
+    </div>`;
   }
 
   if (H) start(); else renderCreate();

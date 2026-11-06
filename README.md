@@ -34,6 +34,7 @@ node tools/serve.js
 | `js/game.js` | 게임 엔진. 맨 위에 조 공유 상태 동기화, 아래쪽에 단서 나눔·투표·역할 배정·소통 창 |
 | `js/net.js` | 실시간 연결: 입장, 조 상태 주고받기, 접속자, 메시지 |
 | `js/host.js` · `host.html` · `css/host.css` | 진행자 화면 |
+| `tools/simulate.js` | 3개 조 × 5명 봇 시뮬레이션: `node tools/simulate.js` (게임 1분 = 3초, `SEED=숫자`로 다른 판). 진짜 서버에 들어가 플레이하고 결과표를 출력. 진행 중에는 `host.html?timescale=20`으로 지켜볼 수 있음 |
 | `css/style.css` | 디자인. 맨 아래에 텍스트 배치 규칙과 접근성 색이 모여 있음 |
 | `assets/` | cj.co.kr에서 받은 로고·브랜드 카드 28종·연혁 사진 |
 | `tools/hash.js` | 정답을 바꿀 때 해시 만들기: `node tools/hash.js 새정답` |
