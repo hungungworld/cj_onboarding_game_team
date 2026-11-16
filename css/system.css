@@ -1,0 +1,128 @@
+/* ═════════════════════════════════════════════════════════
+ *  디자인 규칙 (참가자 화면 index.html · 진행자 화면 host.html 공통)
+ *  두 화면 모두 이 파일을 가장 먼저 불러온다. 색·간격·글자 크기·모서리는
+ *  여기 있는 변수만 쓰고, 화면 파일(style.css, host.css)에 새 값을 적지 않는다.
+ *
+ *  1. 색
+ *     - 면(배경·버튼 채움)에는 브랜드 색 --red, --orange, --yellow
+ *     - 글자에는 진한 색 --ink, --red-ink, --orange-ink, --good-ink (흰 배경 대비 4.5:1 이상)
+ *     - 상태 색: 성공 --good / --good-bg, 경고 --red-ink / --bad-bg, 강조 면 --warm-bg
+ *  2. 간격: 8의 배수만 (--s1 8px … --s6 48px). 제목↔본문 < 본문↔버튼
+ *  3. 글자: --fs-xs 12 · --fs-sm 14 · --fs-md 16 · --fs-lg 20 · --fs-xl 26 · --fs-display
+ *     제목·숫자는 CJ ONLYONE 700, 본문 400. 한국어는 word-break: keep-all
+ *  4. 모서리: 작은 요소 --r-sm 10px, 입력칸·버튼 --r-md 12px, 카드 --radius 16px, 큰 선택 카드 --r-lg 20px
+ *  5. 컴포넌트: 카드 .card · 버튼 .btn(.primary .big .small) · 입력 .field · 선택 카드 .role-card
+ *     새 화면도 이 컴포넌트를 먼저 쓰고, 없을 때만 화면 파일에 추가한다
+ *  6. 정렬: 덩어리 하나에 기준선 하나. 가운데 정렬은 3줄 이하 짧은 문구만, 본문은 왼쪽 + 너비 제한
+ *  7. 터치: 누르는 요소는 높이 44px 이상, 포커스는 --orange-ink 3px 테두리
+ * ═════════════════════════════════════════════════════════ */
+
+/* CJ 전용 서체 (assets/fonts에 함께 배포) */
+@font-face { font-family: "CJ ONLYONE"; font-weight: 300; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_300.woff2") format("woff2"); }
+@font-face { font-family: "CJ ONLYONE"; font-weight: 400 500; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_400.woff2") format("woff2"); }
+@font-face { font-family: "CJ ONLYONE"; font-weight: 600; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_600.woff2") format("woff2"); }
+@font-face { font-family: "CJ ONLYONE"; font-weight: 700 900; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_700.woff2") format("woff2"); }
+
+:root {
+  /* 서체 */
+  --font-title: "CJ ONLYONE", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-body: "CJ ONLYONE", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  /* 브랜드 면 색 */
+  --red: #E8392B;
+  --orange: #F39200;
+  --yellow: #FFC20E;
+
+  /* 글자 색 (대비 확인됨) */
+  --ink: #17171A;
+  --sub: #5E5E66;
+  --red-ink: #C8281C;     /* 흰 글자 5.56:1 */
+  --orange-ink: #B35F00;  /* 흰 글자 4.61:1 */
+  --good-ink: #0E7A45;    /* 흰 배경 5.40:1 */
+  --muted-ink: #6B5A44;
+
+  /* 바탕과 상태 면 */
+  --bg: #F7F5F2;
+  --card: #FFFFFF;
+  --line: rgba(23,23,26,.08);
+  --line-strong: #E2DCD3;  /* 흰 배경 위 입력칸·카드 테두리 */
+  --good: #1AA260;
+  --good-bg: #E7F6EE;
+  --bad-bg: var(--red-soft);
+  --warm-bg: #FFF6E6;
+  --warm-line: #F6DDB8;
+
+  /* 간격 (8의 배수) */
+  --s1: 8px; --s2: 16px; --s3: 24px; --s4: 32px; --s5: 40px; --s6: 48px;
+
+  /* 글자 크기 */
+  --fs-xs: 12px; --fs-sm: 14px; --fs-md: 16px; --fs-lg: 20px; --fs-xl: 26px;
+  --fs-display: clamp(64px, 10vw, 120px);
+
+  /* 모서리와 그림자 */
+  --r-sm: 10px; --r-md: 12px; --radius: 16px; --r-lg: 20px;
+  --shadow: 0 6px 24px rgba(60, 40, 20, .08);
+  --shadow-lift: 0 12px 32px rgba(60, 40, 20, .14);
+
+  /* 밝은 유리 테마 */
+  --glass: rgba(255,255,255,.72);
+  --glass-line: rgba(255,255,255,.9);
+  --soft-shadow: 0 24px 60px -24px rgba(40,30,25,.24), 0 2px 6px rgba(40,30,25,.04);
+  --red-soft: #FDECEA;
+  --spring: cubic-bezier(.2,.9,.3,1.15);
+
+  /* 너비 */
+  --w-body: 36em;         /* 본문 한 줄 최대 */
+  --w-card: 26em;         /* 말풍선·카드 안 */
+  --w-pop: 20em;          /* 팝업·결과 문구 */
+  --w-page: 1200px;       /* 진행자 화면 */
+}
+
+/* ───────── 공통 컴포넌트 ───────── */
+
+/* 입력칸: <label class="field">이름<input></label> */
+.field { display: flex; flex-direction: column; gap: var(--s1); font-weight: 600; font-size: var(--fs-sm); color: var(--ink); text-align: left; }
+.field input, .field textarea, .field select {
+  width: 100%; min-height: 44px; padding: 10px 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--card);
+  font: inherit; font-weight: 400; font-size: var(--fs-md); color: var(--ink);
+}
+.field input:focus, .field textarea:focus { outline: 3px solid var(--orange-ink); outline-offset: 1px; border-color: transparent; }
+
+/* 카드 제목 줄: 아이콘 + 제목 */
+.panel-title { display: flex; align-items: center; gap: var(--s1); margin: 0 0 var(--s2); font-size: var(--fs-lg); }
+.panel-title .ti { color: var(--orange-ink); }
+
+/* 처음 화면: 진행자 / 참가자 고르기 */
+.gate { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s4); padding: var(--s5) var(--s2); text-align: center; }
+.gate-head { display: flex; flex-direction: column; align-items: center; gap: var(--s1); }
+.gate-head .eyebrow { margin: 0; }
+.gate-logo { height: 32px; width: auto; margin-bottom: var(--s2); }
+.gate-head h1 { margin: 0; font-size: clamp(28px, 5vw, 40px); line-height: 1.25; }
+.gate-head h1 em { font-style: normal; color: var(--red-ink); }
+.gate-head p { margin: 0; color: var(--sub); }
+.gate-roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); width: min(100%, 720px); }
+.role-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1);
+  padding: var(--s3); border: 2px solid var(--glass-line); border-radius: var(--r-lg);
+  background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--soft-shadow); text-align: left; color: var(--ink);
+  font: inherit; cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.role-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: var(--orange); }
+.role-card .role-ic { width: 52px; height: 52px; border-radius: var(--radius); display: grid; place-items: center; font-size: 28px; background: var(--warm-bg); color: var(--orange-ink); }
+.role-card.primary .role-ic { background: var(--red-ink); color: #fff; }
+.role-card b { font-family: var(--font-title); font-size: var(--fs-lg); }
+.role-card span { color: var(--sub); font-size: var(--fs-sm); line-height: 1.55; }
+.role-card .role-go { margin-top: auto; padding-top: var(--s1); display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--red-ink); font-size: var(--fs-sm); }
+.gate-foot { margin: 0; font-size: var(--fs-sm); color: var(--sub); }
+@media (max-width: 600px) { .gate-roles { grid-template-columns: 1fr; } }
+
+/* 상단바 오른쪽 작은 링크 */
+.top-link { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 var(--s2); border: 1px solid var(--line-strong); border-radius: 999px; background: var(--card); color: var(--ink); text-decoration: none; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; }
+.top-link:hover { border-color: var(--orange); }
+
+/* 처음 화면은 밝은 바탕 + 스크롤 허용 (인트로 장면의 어두운 바탕보다 우선) */
+body.is-intro.at-gate { overflow: auto; background:
+  radial-gradient(42vw 42vw at 85% 10%, rgba(243,146,0,.08), transparent 70%),
+  radial-gradient(36vw 36vw at 10% 90%, rgba(200,40,28,.06), transparent 70%),
+  var(--bg); }

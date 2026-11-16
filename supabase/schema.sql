@@ -20,7 +20,6 @@ create table if not exists public.teams (
   name text not null check (char_length(name) between 1 and 20),
   state jsonb not null default '{}'::jsonb,       -- 조가 함께 쓰는 진행 상황
   ver integer not null default 0,                 -- 바뀔 때마다 +1 (오래된 소식 무시용)
-  help_count integer not null default 0,          -- 다른 조를 도와준 횟수 (상생 점수)
   created_at timestamptz not null default now(),
   unique (session_id, name)
 );
@@ -38,7 +37,7 @@ create table if not exists public.messages (
   id bigint generated always as identity primary key,
   session_id uuid not null references public.sessions(id) on delete cascade,
   team_id uuid references public.teams(id) on delete cascade,  -- 보낸 조 (공지는 비어 있음)
-  scope text not null check (scope in ('team', 'all', 'notice', 'sos', 'help', 'letter')),
+  scope text not null check (scope in ('team', 'all', 'notice', 'letter')),
   author text not null default '',
   body text not null check (char_length(body) between 1 and 300),
   meta jsonb not null default '{}'::jsonb,
@@ -192,13 +191,13 @@ begin
   return json_build_object('state', st, 'ver', v);
 end $$;
 
-/* ───────── 메시지 보내기 (조 채팅·전체 채팅·SOS·도와주기·100주년 편지) ─────────
+/* ───────── 메시지 보내기 (조 채팅·전체 채팅·100주년 편지) ─────────
  * 보낸 사람 이름·조·아이디는 서버가 붙인다 (흉내 내기 방지) */
 create or replace function public.post_message(p_player uuid, p_secret text, p_scope text, p_body text, p_meta jsonb default '{}'::jsonb)
 returns void language plpgsql security definer set search_path = public as $$
 declare pl players%rowtype; tname text;
 begin
-  if p_scope not in ('team', 'all', 'sos', 'help', 'letter') then raise exception '보낼 수 없는 종류예요'; end if;
+  if p_scope not in ('team', 'all', 'letter') then raise exception '보낼 수 없는 종류예요'; end if;
   pl := _player_ok(p_player, p_secret);
   if pl.id is null then raise exception '먼저 입장하세요'; end if;
   select name into tname from teams where id = pl.team_id;
@@ -207,7 +206,6 @@ begin
   insert into messages(session_id, team_id, scope, author, body, meta)
     values (pl.session_id, pl.team_id, p_scope, pl.name, p_body,
             (coalesce(p_meta, '{}'::jsonb) - 'team' - 'pid') || jsonb_build_object('team', tname, 'pid', pl.id));
-  if p_scope = 'help' then update teams set help_count = help_count + 1 where id = pl.team_id; end if;
 end $$;
 
 revoke all on function public._jset(jsonb, text[], jsonb) from public, anon, authenticated;
@@ -216,22 +214,3 @@ revoke all on function public._player_ok(uuid, text) from public, anon, authenti
 grant execute on function public.create_session(text), public.host_post(uuid, text, text), public.host_end(uuid, text),
   public.join_session(text, text, uuid, text, text), public.team_apply(uuid, uuid, text, jsonb),
   public.post_message(uuid, text, text, text, jsonb) to anon, authenticated;
-
-/* ───────── 상생 보너스: 도움을 받은 조가 '도움 됐어요'를 누르면 도와준 조 기록에서 30초 (최대 150초) ───────── */
-alter table public.teams add column if not exists bonus integer not null default 0;
-alter table public.teams add column if not exists thanks integer not null default 0;
-
-create or replace function public.thank_help(p_player uuid, p_secret text, p_msg bigint)
-returns json language plpgsql security definer set search_path = public as $$
-declare pl players%rowtype; m messages%rowtype; b int;
-begin
-  pl := _player_ok(p_player, p_secret);
-  if pl.id is null then raise exception '먼저 입장하세요'; end if;
-  select * into m from messages where id = p_msg for update;
-  if not found or m.scope <> 'help' or (m.meta->>'to')::uuid is distinct from pl.team_id then raise exception '우리 조에 온 도움이 아니에요'; end if;
-  if coalesce((m.meta->>'thanked')::boolean, false) then return json_build_object('ok', false); end if;
-  update messages set meta = meta || jsonb_build_object('thanked', true, 'thankedBy', pl.name) where id = m.id;
-  update teams set thanks = thanks + 1, bonus = least(bonus + 30, 150) where id = m.team_id returning bonus into b;
-  return json_build_object('ok', true, 'bonus', b);
-end $$;
-grant execute on function public.thank_help(uuid, text, bigint) to anon, authenticated;

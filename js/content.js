@@ -40,10 +40,9 @@ window.GAME = {
     rules: {
       cards: [
         { icon: "ti-users", title: "조원과 함께 접속", lines: ["같은 입장 코드, 같은 조 이름으로!", "퍼즐과 장면이 조원 화면에 같이 움직여요."] },
-        { icon: "ti-puzzle", title: "단서는 나눠서", lines: ["단서가 조원마다 하나씩 나뉘어요.", "내 단서는 말이나 조 채팅으로 알려요."] },
-        { icon: "ti-world", title: "다른 조와도 소통", lines: ["오른쪽 아래 소통 창에서 전체 대화와", "조별 현황을 볼 수 있어요."] },
-        { icon: "ti-lifebuoy", title: "막히면 힌트 또는 SOS", lines: ["힌트는 조 기록에 +1·3·5분이 더해져요.", "SOS는 벌점 없이 다른 조에 묻는 거예요."] },
-        { icon: "ti-heart-handshake", title: "도와주면 상생 점수", lines: ["이미 푼 방의 SOS가 오면 도와주세요.", "정답 대신 방향만 알려 주는 게 규칙!"] }
+        { icon: "ti-puzzle", title: "단서는 나눠서", lines: ["단서가 조원마다 나뉘어요.", "한 장이라도 빠지면 답이 안 나와요."] },
+        { icon: "ti-messages", title: "말로 맞춰 보기", lines: ["정답은 어디에도 그대로 없어요.", "단서를 합쳐서 추리해야 열려요."] },
+        { icon: "ti-bulb", title: "막히면 힌트", lines: ["힌트는 조 기록에 +1·3·5분이 더해져요.", "힌트 없이 풀면 생각왕에 가까워져요."] }
       ],
       done: "게임 시작"
     },
@@ -54,21 +53,17 @@ window.GAME = {
       { target: ".hud", text: "시간은 계속 흘러요. 막히면 힌트 버튼!" }
     ],
     acts: {
-      act1: { icon: "ti-door", title: "방 5개를 탈출하세요", lines: ["단서가 조원에게 나뉘어 있어요.", "내 단서를 말로 공유하세요.", "목표 시간은 약 25분이에요."] },
-      act2: { icon: "ti-search", title: "범인을 찾으세요", lines: ["증언 5개와 출입 기록을 비교하세요.", "출입 기록은 조원 한 명만 볼 수 있어요.", "조원 과반이 같은 사람을 골라야 확정!"] },
+      act1: { icon: "ti-door", title: "방 5개를 탈출하세요", lines: ["단서가 조원에게 나뉘어 있어요.", "내 단서를 말로 공유하세요.", "목표 시간은 약 30분이에요."] },
+      act2: { icon: "ti-search", title: "범인을 찾으세요", lines: ["증언 5개와 출입 기록을 비교하세요.", "기록과 출입증 목록은 다른 조원에게 있어요.", "조원 과반이 같은 사람을 골라야 확정!"] },
       act3: { icon: "ti-lock", title: "셋이 함께 여세요", lines: ["역할은 입장한 순서대로 정해져요.", "내 단서를 말로 설명해 주세요.", "잠금장치는 모두 3개예요."] }
     },
     roleRule: { icon: "ti-eye-off", title: "내 화면은 나만 봐요", lines: ["화면은 보여주지 말고 말로만!", "잘 설명하는 것도 실력이에요."] },
     stuck: ["이 방에서 7분이 지났어요.", "힌트 1은 1분만 더해져요."],
     demos: {
       frames:   { kind: "drag",    text: "액자를 끌어서 벽에 거세요." },
-      connect:  { kind: "connect", text: "카드에서 원칙까지 선을 이으세요." },
-      postit:   { kind: "drag",    text: "포스트잇을 상자에 붙이세요." },
       scratch:  { kind: "scrub",   text: "지우개로 문질러 보세요." },
       basket:   { kind: "drag",    text: "재료를 바구니에 담으세요." },
       dial:     { kind: "dial",    text: "다이얼을 위아래로 돌리세요." },
-      tanks:    { kind: "drag",    text: "샘플을 탱크에 넣으세요." },
-      flip:     { kind: "tap",     text: "카드를 눌러서 뒤집으세요." },
       accuse:   { kind: "hold",    text: "길게 눌러서 지목하세요." },
       pins:     { kind: "tap",     text: "핀 2개를 순서대로 누르세요." },
       pieces:   { kind: "drag",    text: "조각을 빈칸에 끼우세요." },
@@ -89,35 +84,43 @@ window.GAME = {
   hintPenalty: [60, 180, 300],
   lockout: { tries: 5, seconds: 30 },
 
+  /* 방 단서(objects): shared가 있으면 모두에게, 없으면 조원에게 하나씩 나뉜다.
+   * 방마다 나뉘는 단서는 5장. 한 장이라도 빠지면 답이 하나로 정해지지 않게 만들었다. */
   rooms: [
-    /* ───────── 방 1 ───────── */
+    /* ───────── 방 1: 연도 계산 사슬 ───────── */
     {
       id: "room1",
       no: 1,
       title: "로비 「1953 설탕 공장」",
       theme: "70년의 역사",
-      intro: "로비 벽면의 역사 갤러리.\n경보 진동에 액자 7개가\n바닥으로 떨어져 뒤섞였어요.\n연도 표지는 지워져 있어요.",
+      intro: "로비 벽면의 역사 갤러리.\n경보 진동에 액자 7개가\n바닥으로 떨어져 뒤섞였어요.\n벽의 고리에는 연도만,\n액자에는 사건만 남아 있어요.",
       objects: [
         {
+          shared: true,
           icon: "ti-photo",
           label: "벽에 남은 안내문",
           title: "역사 갤러리 안내문",
           body:
             "<p>CJ제일제당은 1953년,\n<b>대한민국 최초의 설탕 제조업</b>으로\n첫발을 내디뎠어요.</p>" +
-            "<p class='note'>액자를 <b>오래된 순서대로</b> 다시 걸면\n뒷면의 글자가 보여요.</p>"
+            "<p class='note'>액자를 <b>사건이 일어난 해의 고리</b>에\n다시 걸면 뒷면의 글자가 보여요.\n금고 비밀번호는 그 <b>일곱 글자</b>예요.</p>"
         },
-        {
-          icon: "ti-bell",
-          label: "안내 데스크 메모",
-          title: "안내 데스크 메모",
-          body: "<p class='memo'>금고 비밀번호는\n액자 뒷면에 적힌 <b>일곱 글자.</b>\n우리 회사의 경영철학이기도 하지.</p><p class='sign'>— 안내 데스크</p>"
-        }
+        { icon: "ti-grain", label: "제분 공장 메모", title: "제분 공장 메모",
+          body: "<p class='memo'>제분 사업은 설탕 생산\n<b>5년 뒤</b>에 시작했어요.\n'백설'은 제분 <b>7년 뒤</b>에 나왔어요.</p>" },
+        { icon: "ti-soup", label: "다시다 광고지", title: "다시다 광고지",
+          body: "<p class='memo'>'다시다'는 '백설'이 나오고\n<b>10년 뒤</b>에 생산을 시작했어요.</p>" },
+        { icon: "ti-bowl", label: "햇반 포스터", title: "햇반 30주년 포스터",
+          body: "<p class='memo'>'햇반'은 '다시다'\n<b>21년 뒤</b>에 나왔어요.\n그리고 올해가 <b>30주년</b>이에요.</p>" },
+        { icon: "ti-world", label: "비비고 보도자료", title: "비비고 보도자료",
+          body: "<p class='memo'>'비비고'는 '햇반'\n<b>14년 뒤</b>에 나온\n글로벌 한식 브랜드예요.</p>" },
+        { icon: "ti-building", label: "블로썸파크 초대장", title: "CJ블로썸파크 개관 초대장",
+          body: "<p class='memo'>융복합 연구소 'CJ블로썸파크'는\n'비비고' <b>7년 뒤</b>에 문을 열었어요.</p>" }
       ],
       puzzle: {
         type: "timeline",
         demo: "frames",
-        alt: "끌기가 어려우면 액자를 누르세요.\n빈칸에 차례로 걸려요.",
-        help: "바닥의 액자를 끌어 벽의 빈칸에 거세요.\n잘못 걸었으면 다른 칸으로 옮기거나\n바닥으로 내리면 돼요.",
+        yearSlots: true,
+        alt: "끌기가 어려우면 액자를 누르세요.\n빈 고리에 차례로 걸려요.",
+        help: "조원 단서를 이어서 사건마다 연도를 계산하고,\n그 연도의 고리에 액자를 거세요.",
         cards: [
           { year: "1953", text: "제일제당공업주식회사 설립,\n국내 최초 설탕 생산", letter: "O", img: "assets/history/1953_factory.jpg" },
           { year: "1958", text: "제분 사업 시작", letter: "N", emoji: "ti-grain" },
@@ -131,23 +134,24 @@ window.GAME = {
       },
       lock: { prompt: "금고 비밀번호 (영문 7자)", hash: "f0178e35", placeholder: "예: ABCDEFG" },
       hints: [
-        "액자 속 사건의 시대를 떠올려 보세요.\n설탕이 가장 먼저,\n연구소가 가장 나중이에요.",
-        "설탕 → 제분 → 백설 → 다시다\n→ 햇반 → 비비고 → 블로썸파크",
+        "1953년에서 출발해서\n조원 단서의 '○년 뒤'를\n차례로 더해 보세요.",
+        "제분 1958 → 백설 1965 → 다시다 1975\n→ 햇반 1996 → 비비고 2010\n→ 블로썸파크 2017",
         "정답은 ONLYONE이에요."
       ],
       reward: { id: "onlyone", label: "열쇠 단어 ONLYONE", icon: "ti-key" },
       outro: { who: "블라썸", text: "ONLYONE은 CJ의 경영철학이에요.\n최초·최고·차별화를 추구한다는 뜻이죠.\n나중에 또 필요하니 꼭 기억해 두세요!" }
     },
 
-    /* ───────── 방 2 ───────── */
+    /* ───────── 방 2: 이해관계자 딜레마 ───────── */
     {
       id: "room2",
       no: 2,
       title: "회의실 「ONLYONE 회의」",
-      theme: "미션 · 핵심가치",
-      intro: "회의실.\n화이트보드에 적힌 회사의 미션, 마지막 부분이 지워져 있어요.\n테이블 위에는 상황 카드와 포스트잇이 흩어져 있어요.",
+      theme: "미션 · 행동원칙",
+      intro: "긴급 회의실.\n내일 나갈 신제품 포장에서\n알레르기 표시가 빠진 걸 발견했어요.\n부서마다 남긴 메모를 모아\n결정을 내려야 해요.",
       objects: [
         {
+          shared: true,
           icon: "ti-presentation",
           label: "화이트보드",
           title: "화이트보드",
@@ -156,72 +160,79 @@ window.GAME = {
             "<p class='board small'>VISION<br>건강, 즐거움, 편리를 창조하는<br>글로벌 생활문화기업</p>"
         },
         {
+          shared: true,
           icon: "ti-file-text",
           label: "벽에 걸린 액자",
           title: "창업 정신",
           body:
             "<p>1953년, CJ제일제당은\n<b>사업보국(事業報國)</b>의 일념으로\n출발했어요.</p>" +
             "<p class='note'>사업보국: 사업을 통해\n나라와 사회에 보답한다는 뜻</p>"
-        }
+        },
+        { icon: "ti-shield-check", label: "품질안전팀 메모", title: "품질안전팀 메모",
+          body: "<p class='memo'>표시가 빠진 제품은\n<b>한 개도</b> 매장에 나가면 안 돼요.</p>" },
+        { icon: "ti-building-factory-2", label: "생산팀 메모", title: "생산팀 메모",
+          body: "<p class='memo'>새 포장으로 다시 만들면 <b>2주</b>,\n보완 스티커를 붙이면 <b>2일</b> 걸려요.</p>" },
+        { icon: "ti-mail", label: "협력사 메일", title: "협력사(마트) 메일",
+          body: "<p class='memo'>마트 행사가 <b>일주일 뒤</b> 시작해요.\n그 안에 못 들어오면\n행사 자리가 다른 회사로 넘어가요.</p>" },
+        { icon: "ti-scale", label: "법무팀 메모", title: "법무팀 메모",
+          body: "<p class='memo'>보완 스티커로 표시를 바로잡으면\n<b>판매해도 돼요.</b></p>" },
+        { icon: "ti-user-check", label: "팀장 메모", title: "팀장 메모",
+          body: "<p class='memo'>어떤 결정이든\n고객과 협력사가 <b>우리에게서 먼저</b>\n듣게 해 주세요.</p>" }
       ],
       puzzle: {
-        type: "values",
-        alt: "끌기가 어려우면\n카드나 포스트잇을 누른 뒤,\n원칙이나 상자를 누르세요.",
-        help: "① 상황 카드 → 행동원칙, 선으로 이으세요.\n② 포스트잇 → 핵심가치 상자에 붙이세요.",
-        principles: ["정직", "열정", "창의", "존중"],
-        situations: [
-          { text: "실수로 납기를 놓쳤어요.\n숨기지 않고 바로 팀에 공유했어요.", answer: "정직" },
-          { text: "아무도 해본 적 없는 신제품이지만\n끝까지 해보겠습니다!", answer: "열정" },
-          { text: "기존 방식 말고, 남는 재료로\n새 제품을 만들어 보면 어떨까요?", answer: "창의" },
-          { text: "의견은 다르지만, 끝까지 듣고 나서\n제 생각을 말할게요.", answer: "존중" }
+        type: "decision",
+        demo: "scratch",
+        help: "선택지마다 어긋나는 메모가 있는지\n조원과 하나씩 따져 보세요.\n모든 메모를 지키는 결정은 하나뿐이에요.",
+        question: "출시 하루 전, 우리 팀의 결정은?",
+        options: [
+          { id: "A", text: "예정대로 출시하고,\n다음 생산분부터 라벨을 고친다.", breaks: "품질안전팀 메모" },
+          { id: "B", text: "출시를 미루고,\n전량 새 포장으로 다시 만든다.", breaks: "생산팀 메모 · 협력사 메일" },
+          { id: "C", text: "보완 스티커를 붙여 이틀 뒤 출시하고,\n고객과 협력사에 먼저 알린다." },
+          { id: "D", text: "보완 스티커를 붙여 이틀 뒤 출시하되,\n문제는 따로 알리지 않는다.", breaks: "팀장 메모" }
         ],
-        values: ["인재", "ONLYONE", "상생"],
-        keywords: [
-          { text: "일류인재", answer: "인재" },
-          { text: "일류문화", answer: "인재" },
-          { text: "최초최고", answer: "ONLYONE" },
-          { text: "차별화", answer: "ONLYONE" },
-          { text: "생태계 조성", answer: "상생" },
-          { text: "공유가치", answer: "상생" }
+        answer: "C",
+        principles: [
+          { name: "정직", why: "숨기지 않고 먼저 알렸어요" },
+          { name: "존중", why: "협력사 행사 일정을 지켰어요" },
+          { name: "창의", why: "스티커로 빠르게 바로잡았어요" },
+          { name: "열정", why: "이틀 안에 끝까지 해결했어요" }
         ],
         scratchHidden: "ㄱ ▢ ㅅ ▢",
-        doneText: "화이트보드의 지워진 자리에\n희미한 자국이 남아 있어요.\n지우개로 문질러 보세요."
+        doneText: "결정에 행동원칙 네 가지가 모두 담겼어요.\n이제 화이트보드의 지워진 미션을 볼 차례.\n지우개로 문질러 보세요."
       },
       lock: { prompt: "화이트보드 빈칸 네 글자", hash: "bc3b0880", placeholder: "예: ○○○○" },
       hints: [
-        "미션은 '사업보국' 정신과 이어져 있어요.\n사업으로 누구에게 보답하나요?",
-        "두 단어예요.\n'나라'를 뜻하는 두 글자 +\n'세상'을 뜻하는 두 글자",
-        "정답은 '국가사회'예요."
+        "선택지 하나씩, 어긋나는 메모가 있으면 지워 보세요.\n미션 빈칸은 '사업보국' 액자와 이어져 있어요.",
+        "새 포장 2주는 행사 일주일보다 길어요.\n미션 빈칸은 '나라' 두 글자 + '사회' 두 글자.",
+        "결정은 C, 자물쇠 정답은 '국가사회'예요."
       ],
       reward: null,
-      outro: { who: "블라썸", text: "핵심가치는 인재·ONLYONE·상생,\n행동원칙은 정직·열정·창의·존중이에요.\n회의할 때 자주 듣게 될 거예요." }
+      outro: { who: "블라썸", text: "핵심가치는 인재·ONLYONE·상생,\n행동원칙은 정직·열정·창의·존중이에요.\n어려운 결정일수록 이 원칙이 기준이 돼요." }
     },
 
-    /* ───────── 방 3 ───────── */
+    /* ───────── 방 3: 조건 맞추기 ───────── */
     {
       id: "room3",
       no: 3,
-      title: "K-Food 키친 「신입 환영 한 상」",
+      title: "K-Food 키친 「해외 바이어 환영 한 상」",
       theme: "대표 브랜드",
-      intro: "시식 키친.\n조리대 위에 '신입 환영 한 상' 레시피 카드가 있어요.\n그런데 재료 이름 대신 브랜드의 역사만 적혀 있어요.",
+      intro: "시식 키친.\n오늘 해외 바이어가 와요.\n선반의 제품 9개 중 네 개로\n한 상을 차려야 하는데,\n조건이 조원마다 흩어져 있어요.",
       objects: [
-        {
-          icon: "ti-notes",
-          label: "레시피 카드",
-          title: "신입 환영 한 상",
-          body:
-            "<ol class='recipe'>" +
-            "<li>1996년에 태어난\n<b>한국 최초의 즉석밥</b></li>" +
-            "<li>2010년 출시, 2016년\n<b>美 만두 시장 1위</b>에 오른\n글로벌 한식 브랜드</li>" +
-            "<li>1975년부터 국물 맛을 책임져 온\n<b>종합 조미료</b></li>" +
-            "<li>1965년, 설탕을\n<b>가정용 소포장</b>으로 바꾼\n식품 대표 브랜드</li>" +
-            "</ol><p class='note'>재료를 <b>레시피 순서대로</b> 담으면\n바구니에 칸 번호가 찍혀요.</p>"
-        }
+        { icon: "ti-list-numbers", label: "셰프 코스표", title: "셰프 코스표",
+          body: "<p class='memo'>순서는\n<b>밥 → 메인 → 국물 → 디저트.</b>\n칸마다 제품 하나씩.</p>" },
+        { icon: "ti-mail", label: "바이어 메일", title: "바이어 메일",
+          body: "<p class='memo'>미국에서 <b>만두로 1위</b>를 한\n그 브랜드를 메인으로\n꼭 맛보고 싶어요.</p>" },
+        { icon: "ti-soup", label: "국물 담당 메모", title: "국물 담당 메모",
+          body: "<p class='memo'>국물 맛은\n<b>장류가 아니라 조미료</b>로 내요.</p>" },
+        { icon: "ti-cake", label: "디저트 담당 메모", title: "디저트 담당 메모",
+          body: "<p class='memo'>디저트는 셰프가 직접 구워요.\n다 만들어진 디저트 말고\n<b>설탕</b> 브랜드로 주세요.</p>" },
+        { icon: "ti-fridge", label: "냉장고 메모", title: "냉장고 메모",
+          body: "<p class='memo'>냉장고 다이얼 =\n코스 순서대로 담은 제품의\n<b>선반 칸 번호</b> 네 자리.</p>" }
       ],
       puzzle: {
         type: "shelf",
         alt: "끌기가 어려우면 제품을 누르세요.\n'바구니에 담기' 버튼이 있어요.",
-        help: "제품을 끌어서 바구니에 담으세요.\n제품을 누르면 브랜드 이야기가 나와요.",
+        help: "제품을 누르면 브랜드 이야기가 나와요.\n조건에 맞는 제품을 코스 순서대로\n바구니에 담으세요.",
         basketSize: 4,
         items: [
           { slot: 1, name: "다시다", img: "assets/brands/dasida.png", info: "1975년 생산을 시작한\n종합 조미료 브랜드.\n반세기 가까이\n한국의 국물 맛을 책임져 왔어요." },
@@ -237,120 +248,102 @@ window.GAME = {
       },
       lock: { type: "dial", digits: 4, prompt: "냉장고 다이얼 자물쇠 (숫자 4자리)", hash: "7ad95a9d" },
       hints: [
-        "레시피 순서대로 브랜드를 떠올려 보세요.\n즉석밥 → 만두 → 조미료 → 설탕",
-        "햇반 → 비비고 → 다시다 → 백설.\n이제 선반에서 칸 번호를 찾으세요.",
+        "코스 칸마다 후보를 먼저 적고,\n조건에 안 맞는 제품을 지워 보세요.\n제품을 누르면 소개가 나와요.",
+        "밥은 햇반, 메인은 비비고,\n국물은 다시다, 디저트는 백설이에요.",
         "정답은 3715예요."
       ],
       reward: null,
       outro: { who: "블라썸", text: "선반의 브랜드는 일부일 뿐이에요.\nCJ제일제당에는\n20개가 넘는 식품·BIO 브랜드가 있어요." }
     },
 
-    /* ───────── 방 4 ───────── */
+    /* ───────── 방 4: 원인 추리 ───────── */
     {
       id: "room4",
       no: 4,
       title: "CJ블로썸파크 「발효 연구실」",
       theme: "사업 구조 · BIO",
-      intro: "식품·바이오 융복합 연구소,\nCJ블로썸파크의 발효 연구실.\n한가운데 발효 탱크 3개가 있고,\n바닥엔 제품 샘플 9개가 흩어져 있어요.",
+      intro: "식품·바이오 융복합 연구소,\nCJ블로썸파크의 발효 연구실.\n밤사이 탱크 하나의 수율이 떨어졌는데,\n정전으로 수율 기록이 지워졌어요.",
       objects: [
-        {
-          icon: "ti-microscope",
-          label: "현미경",
-          title: "현미경 슬라이드",
-          motion: "magnifier",
-          body:
-            "<p class='slide-text'>“CJ제일제당은\n세계 유일의 친환경 발효기술 기반\n<b>▢대 사료용 아미노산</b> 공급 기업입니다.”</p>" +
-            "<p class='chips'><span>라이신</span><span>트립토판</span><span>알지닌</span><span>발린</span><span>쓰레오닌</span><span>이소류신</span><span>메치오닌</span><span>히스티딘</span></p>"
-        },
-        {
-          icon: "ti-pin",
-          label: "연구실 게시판",
-          title: "연구실 게시판",
+        { icon: "ti-report-analytics", label: "운전 기록", title: "어젯밤 탱크 운전 기록",
+          body: "<table class='tbl'><tr><th>탱크</th><th>온도</th><th>pH</th><th>발효 시간</th></tr>" +
+            "<tr><td>⑤</td><td>33℃</td><td>6.8</td><td>46시간</td></tr>" +
+            "<tr><td>⑥</td><td>30℃</td><td>7.1</td><td>40시간</td></tr>" +
+            "<tr><td>⑦</td><td>31℃</td><td>7.3</td><td>50시간</td></tr>" +
+            "<tr><td>⑧</td><td>34℃</td><td>6.9</td><td>38시간</td></tr></table>" +
+            "<p class='note'>수치는 게임용 가상 값이에요.</p>" },
+        { icon: "ti-calendar", label: "생산 일정표", title: "생산 일정표",
+          body: "<p class='memo'>탱크 라벨이 떨어졌어요.\n<b>홀수 탱크는 라이신,\n짝수 탱크는 트립토판</b>을 만들어요.</p>" },
+        { icon: "ti-clipboard-list", label: "라이신 기준표", title: "라이신 균주 기준표",
+          body: "<p class='memo'>라이신 균주가 잘 자라는 조건\n온도 <b>30~34℃</b>\npH <b>6.5~7.5</b></p>" },
+        { icon: "ti-clipboard-list", label: "트립토판 기준표", title: "트립토판 균주 기준표",
+          body: "<p class='memo'>트립토판 균주가 잘 자라는 조건\n온도 <b>28~32℃</b>\npH <b>6.8~7.2</b></p>" },
+        { icon: "ti-pin", label: "연구실 게시판", title: "연구실 게시판",
           body:
             "<p>CJ제일제당의 사업은\n세 부문으로 나뉘어요.</p>" +
             "<ul><li><b>라이프스타일 식품</b>\nK-Food 세계화, 새로운 식문화 창조</li>" +
             "<li><b>기술소재</b>\n발효 기술 기반 Taste·Nutrition·\nHealth & Wellness·생분해 소재</li>" +
             "<li><b>핵심소재</b>\n설탕·밀가루·식용유 같은 식품소재와\n동물영양(아미노산·그린 프로틴)</li></ul>" +
-            "<p class='note'>탱크 비밀번호 =\n탱크 3개에 나타나는 글자 + 현미경 속 숫자</p>"
-        }
+            "<p class='note'>발효 시간은 36~52시간이면 모두 정상.\n탱크 비밀번호 = <b>BIO + 문제 탱크 번호</b></p>" }
       ],
       puzzle: {
-        type: "tanks",
-        alt: "끌기가 어려우면\n샘플을 누른 뒤 탱크를 누르세요.",
-        help: "샘플을 알맞은 사업부문 탱크에 넣으세요.\n탱크가 가득 차면 글자가 나타나요.",
-        tanks: [
-          { id: "food", name: "라이프스타일 식품", letter: "B", color: "#F39200" },
-          { id: "tech", name: "기술소재", letter: "I", color: "#2D7FF9" },
-          { id: "core", name: "핵심소재", letter: "O", color: "#1AA260" }
-        ],
-        samples: [
-          { name: "비비고", img: "assets/brands/bibigo.png", tank: "food", info: "글로벌 한식 브랜드" },
-          { name: "햇반", img: "assets/brands/hetbahn.png", tank: "food", info: "한국 최초 즉석밥" },
-          { name: "크레잇", img: "assets/brands/creeat.png", tank: "food", info: "외식·급식용 B2B 식품 브랜드" },
-          { name: "TasteNrich", img: "assets/brands/tastenrich.png", tank: "tech", info: "식물성 발효 조미소재" },
-          { name: "PHACT", img: "assets/brands/phact.png", tank: "tech", info: "생분해 바이오 소재 PHA" },
-          { name: "AMINATURE", img: "assets/brands/aminature.png", tank: "tech", info: "발효 기반 영양 솔루션" },
-          { name: "BestAmino", img: "assets/brands/bestamino.png", tank: "core", info: "사료용 아미노산" },
-          { name: "X·SOY", img: "assets/brands/xsoy.png", tank: "core", info: "발효 대두 단백" },
-          { name: "Nextide", img: "assets/brands/nextide.png", tank: "core", info: "차세대 그린 프로틴" }
-        ],
-        doneText: "세 탱크가 모두 차올랐어요!\n탱크 표면에 글자 B, I, O가 떠올랐어요."
+        type: "tanklog",
+        help: "탱크마다 무엇을 만드는지, 기준 안인지\n조원과 따져서 표시해 보세요.\n표시는 조원 화면에 같이 보여요.",
+        tanks: [5, 6, 7, 8],
+        strains: ["라이신", "트립토판"],
+        note: "CJ제일제당은 미생물 발효로\n라이신·트립토판 같은 아미노산을 만들어요.\n온도·pH 수치는 게임용 가상 값이에요."
       },
-      lock: { prompt: "탱크 비밀번호 (영문 3자 + 숫자 1자)", hash: "b58a1ceb", placeholder: "예: ABC0" },
+      lock: { prompt: "탱크 비밀번호 (BIO + 탱크 번호)", hash: "b58a1ceb", placeholder: "예: BIO0" },
       hints: [
-        "먹는 완제품은 라이프스타일 식품,\n발효 맛·영양·생분해 소재는 기술소재,\n아미노산·단백질 원료는 핵심소재예요.",
-        "탱크 글자는 왼쪽부터 B, I, O.\n현미경 속 아미노산 개수를 세어 보세요.",
-        "정답은 BIO8이에요."
+        "먼저 탱크마다 무엇을 만드는지 정하고,\n그 균주의 기준표와 비교하세요.",
+        "숫자가 커 보인다고 문제가 아니에요.\n트립토판 탱크(⑥, ⑧)의 온도를 보세요.",
+        "문제 탱크는 ⑧, 정답은 BIO8이에요."
       ],
       reward: null,
       outro: { who: "블라썸", text: "자연에서 얻고 자연으로 돌려주는 기술,\n그게 CJ제일제당 BIO 사업의 철학이에요." }
     },
 
-    /* ───────── 방 5 ───────── */
+    /* ───────── 방 5: 회의 시간 잡기 ───────── */
     {
       id: "room5",
       no: 5,
       title: "라운지 「님 문화」",
-      theme: "CJ 생활 가이드",
-      intro: "사내 라운지.\n노트북에 어떤 신입이 선배에게 보내려다 만 메신저 초안이 열려 있어요.\n옆에는 '신입 생존 용어 카드'가 있어요.",
+      theme: "일하는 방식",
+      intro: "사내 라운지.\n선배 세 분과 30분짜리\nOT 피드백 회의를 잡아야 해요.\n일정과 메신저가 조원마다 흩어져 있어요.",
       objects: [
         {
+          shared: true,
           icon: "ti-coffee",
           label: "라운지 포스터",
           title: "라운지 포스터",
           body:
             "<p><b>CJ는 2000년,\n대기업 최초로 '님' 문화를 도입했어요.</b></p>" +
             "<p>직급 대신 이름 뒤에 '님'을 붙이면\n누구나 수평적으로 의견을 낼 수 있어요.</p>"
-        }
+        },
+        { icon: "ti-calendar", label: "민지님 일정표", title: "김민지님 오늘 오후 일정",
+          body: "<p class='memo'>14:00~15:00 팀 회의\n16:30~17:00 보고</p>" },
+        { icon: "ti-message-circle", label: "서준님 메신저", title: "박서준님 메신저",
+          body: "<p class='memo'>민지님, 저 오늘 <b>3시 반까지 외근</b>이에요.\n돌아와서 정리하고 <b>4시부터</b> 괜찮아요!</p>" },
+        { icon: "ti-message-circle", label: "현우님 메신저", title: "이현우님 메신저",
+          body: "<p class='memo'>저는 <b>2시 반~3시 반 교육</b>이고,\n<b>5시부터</b> 해외 법인 화상회의예요.</p>" },
+        { icon: "ti-door", label: "회의실 예약표", title: "회의실 예약표",
+          body: "<p class='memo'>오늘 비어 있는 시간\n15:00~15:30\n16:00~16:30\n17:00~18:00</p>" },
+        { icon: "ti-note", label: "신입 메모", title: "내 메모",
+          body: "<p class='memo'>회의는 <b>30분</b>.\n세 분 모두, 회의실까지 되는 시간!\n문 옆 다이얼에 <b>시작 시각 네 자리</b>를 넣으면\n회의실이 예약돼요.</p>" }
       ],
       puzzle: {
-        type: "lounge",
-        help: "① 메신저의 어색한 호칭을 눌러 고치고,\n② 용어 카드를 뒤집어 퀴즈를 푸세요.",
-        message: [
-          "안녕하세요, ",
-          { wrong: "김 과장님", right: "김민지님" },
-          "! 오늘 신입 OT 자료 받았습니다. 혹시 ",
-          { wrong: "박 대리님", right: "박서준님" },
-          "께도 공유드릴까요? 그리고 ",
-          { wrong: "이 부장님", right: "이현우님" },
-          " 회의는 몇 시인지 여쭤봐도 될까요? 😊"
-        ],
-        quiz: [
-          { q: "가정간편식을 뜻하는 말로,\n햇반·비비고 만두 같은 제품을\n부르는 용어는?", options: ["HMR", "B2B", "R&D"], answer: 0 },
-          { q: "소비자 관점에서\n모든 경영 활동을 개선하는\n'CCM'의 뜻은?", options: ["원가관리경영", "소비자중심경영", "품질통합관리"], answer: 1 },
-          { q: "2003년 문을 연\nCJ 임직원 교육·연수의 중심은?", options: ["CJ블로썸캠퍼스", "CJ인재원", "CJ the Center"], answer: 1 },
-          { q: "식품연구소와 BIO연구소가 함께 있는\nCJ제일제당의 융복합 연구소는?", options: ["CJ블로썸파크", "CJ블로썸캠퍼스", "CJ나인브릿지"], answer: 0 }
-        ],
-        doneText: "메신저도, 용어 카드도 완벽해요!\n라운지 문 옆 키패드에 적힌 말:\n<b>'이름 뒤에 붙이는 한 글자'</b>"
+        type: "schedule",
+        help: "칸을 눌러 ○(가능) · ✕(안 됨)을 표시하세요.\n네 줄이 모두 ○인 칸을 찾으면 돼요.\n표시는 조원 화면에 같이 보여요.",
+        rows: ["민지님", "서준님", "현우님", "회의실"],
+        start: 14, end: 18
       },
-      lock: { prompt: "라운지 문 비밀번호 (한 글자)", hash: "5c5e2aa7", placeholder: "한 글자" },
+      lock: { type: "dial", digits: 4, prompt: "회의실 다이얼 (시작 시각 네 자리)", hash: "c47ae4ae" },
       hints: [
-        "메신저에서 고친 호칭을 다시 보세요.\n공통으로 들어간 글자가 있어요.",
-        "직급 대신 이름 뒤에 붙이는 호칭이에요.",
-        "정답은 '님'이에요."
+        "사람마다 되는 시간을 먼저 표에 적어 보세요.\n서준님은 외근 뒤 정리 시간까지 필요해요.",
+        "세 분이 모두 되는 시간은 4시~4시 반이에요.\n회의실도 비어 있나요?",
+        "정답은 1600이에요."
       ],
       reward: null,
-      outro: { who: "블라썸", text: "라운지 문이 열렸어요!\n이제 타임캡슐 보관함이 있는\n대표실 앞으로 가 봐요." }
+      outro: { who: "블라썸", text: "직급 대신 이름과 '님'으로,\n일정은 서로 맞춰서.\n라운지 문이 열렸어요!\n이제 대표실 앞으로 가 봐요." }
     }
   ],
 
@@ -377,18 +370,23 @@ window.GAME = {
       title: "어젯밤 보안실 출입 기록",
       note: "보안실 불이 꺼져 있어요.\n손전등으로 모니터를 비춰 보세요.",
       rows: [
-        ["20:02", "블로썸파크 시식 테스트실 입실", "김○○"],
-        ["20:47", "센터 회의실 입실", "이○○"],
-        ["21:10", "타임캡슐 보관함 열림", "한○○ (30주년 TF)"],
-        ["21:15", "센터 퇴실", "한○○"],
-        ["21:30", "보관함 구역 순찰", "최○○"]
+        ["20:02", "블로썸파크 시식 테스트실 입실", "FR-12"],
+        ["20:47", "센터 회의실 입실", "GM-07"],
+        ["21:10", "타임캡슐 보관함 열림", "TF-30"],
+        ["21:15", "센터 퇴실", "TF-30"],
+        ["21:30", "보관함 구역 순찰", "QS-03"]
       ]
     },
-    questions: [
-      { q: "어젯밤 블로썸파크에 있었던 두 사람은?", options: ["김연구님, 박발효님", "이글로벌님, 최안전님", "박발효님, 한햇님"], answer: 0 },
-      { q: "캡슐 봉인이 뜯긴 것을\n처음 본 시각은?", options: ["오후 8시 50분", "오후 9시 30분", "오후 11시"], answer: 1 },
-      { q: "출입 기록에 따르면\n오후 9시 10분에 보관함을 연\n사람의 소속은?", options: ["품질안전", "글로벌 마케팅", "햇반 30주년 TF"], answer: 2 }
-    ],
+    badges: {
+      icon: "ti-id-badge-2",
+      label: "출입증 목록",
+      title: "출입증 번호 읽는 법",
+      body: "<p>출입증 번호 앞 두 글자는 <b>부서</b>예요.</p>" +
+        "<table class='tbl'><tr><th>앞 글자</th><th>부서</th></tr>" +
+        "<tr><td>FR</td><td>식품연구소</td></tr><tr><td>BR</td><td>BIO연구소</td></tr>" +
+        "<tr><td>GM</td><td>글로벌 마케팅</td></tr><tr><td>QS</td><td>품질안전</td></tr>" +
+        "<tr><td>TF</td><td>햇반 30주년 TF</td></tr></table>"
+    },
     culprit: 4,
     wrongText: "그분은 알리바이가 확실해요.\n증언과 출입 기록을 다시 비교해 보세요.\n(+1분)",
     twist: [
@@ -402,7 +400,7 @@ window.GAME = {
     reward: { id: "health", label: "단어 조각 '건강'", icon: "ti-puzzle" },
     hints: [
       "증언과 출입 기록의 시간이\n서로 맞지 않는 사람을 찾아보세요.",
-      "8시 50분에 퇴근했다는 사람이\n9시 15분에 퇴실 기록이 있어요.",
+      "TF는 햇반 30주년 TF예요.\n8시 50분에 퇴근했다는 사람이\n9시 15분에 퇴실했어요.",
       "레시피북을 꺼낸 사람은 한햇님이에요."
     ]
   },

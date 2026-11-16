@@ -43,7 +43,9 @@
   let synced = null; // 서버에서 마지막으로 받은 조 상태
 
   function diffOps(a, b, path, depth, ops) {
-    if (isObj(a) && isObj(b) && depth < 3) {
+    // 서버에 아직 없는 객체(예: 두 조원이 동시에 처음 만든 퍼즐 판)도 칸 단위로 보내서 서로 덮어쓰지 않게 한다
+    if (isObj(a) && (isObj(b) || b == null) && depth < 3) {
+      b = b || {};
       new Set([...Object.keys(a), ...Object.keys(b)]).forEach((k) => {
         if (!same(a[k], b[k])) diffOps(a[k], b[k], path.concat(k), depth + 1, ops);
       });
@@ -157,9 +159,8 @@
     sec = Math.max(0, Math.floor(sec));
     return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
   }
-  // 상생 보너스(초): 다른 조가 '도움 됐어요'를 누르면 우리 기록에서 빠진다
-  function bonus() { const t = online() && NET.teams[NET.team.id]; return (t && t.bonus) || 0; }
-  function elapsed() { return S.start ? Math.max(0, ((S.end || Date.now()) - S.start) / 1000 + S.penalty - bonus()) : 0; }
+  // 기록 = 걸린 시간 + 힌트·오답 벌점
+  function elapsed() { return S.start ? Math.max(0, ((S.end || Date.now()) - S.start) / 1000 + S.penalty) : 0; }
   // 지점을 푼 시각 (조별 '가장 먼저 연 조' 메달용). 먼저 기록된 시각을 지킨다
   function cleared(key) { if (!S.clearedAt) S.clearedAt = {}; if (!S.clearedAt[key]) S.clearedAt[key] = Date.now(); }
   function hasItem(id) { return S.items.some((i) => i.id === id); }
@@ -680,8 +681,7 @@
   }
   function tick() {
     $("#timer").textContent = fmt(elapsed());
-    const b = bonus();
-    $("#penalty").textContent = [S.penalty ? `벌점 +${fmt(S.penalty)}` : "", b ? `상생 −${fmt(b)}` : ""].filter(Boolean).map((x) => `(${x})`).join(" ");
+    $("#penalty").textContent = S.penalty ? `(벌점 +${fmt(S.penalty)})` : "";
   }
   setInterval(tick, 1000);
 
@@ -696,9 +696,7 @@
         const cost = C.hintPenalty[lv] / 60;
         html += `<button class="btn primary" id="more-hint">${lv === list.length - 1 ? "정답 보기" : `힌트 ${lv + 1} 보기`} <span class="nw">(+${cost}분)</span></button>`;
       } else html += `<p class="note">모든 힌트를 열었어요.</p>`;
-      if (lv < list.length) html += sosButton(key);
       $("#modal-body").innerHTML = html;
-      bindSos(key, $("#modal-body"));
       const b = $("#more-hint");
       if (b) b.onclick = () => {
         S.penalty += C.hintPenalty[S.hintLv[key] || 0];
@@ -822,6 +820,37 @@
 
   /* ═════════ 시작 화면: 끌어서 30년 건너기 (왼쪽 1996 → 오른쪽 2026) ═════════ */
   let introStop = null;
+  /* ═════════ 처음 화면: 진행자 / 참가자 고르기 ═════════ */
+  let roleChosen = false;
+  function renderGate() {
+    document.body.classList.add("at-gate");
+    main.innerHTML = `
+      <section class="gate" aria-labelledby="gate-title">
+        <div class="gate-head">
+          <img class="gate-logo" src="assets/ci/cj_logo_black.svg" alt="CJ제일제당">
+          <p class="eyebrow">${esc(C.meta.subtitle)} · 팀 대항전</p>
+          <h1 id="gate-title"><em>ONLYONE</em> 레시피를 찾아라</h1>
+          <p>${fix("어떻게 참여하시나요?")}</p>
+        </div>
+        <div class="gate-roles">
+          <button class="role-card primary" id="g-player">
+            <span class="role-ic">${ic("ti-users")}</span>
+            <b>참가자</b>
+            <span>${fix("진행자에게 받은 입장 코드로\n조원과 함께 게임을 풀어요.")}</span>
+            <span class="role-go">조에 입장하기 ${ic("ti-arrow-right")}</span>
+          </button>
+          <a class="role-card" id="g-host" href="host.html">
+            <span class="role-ic">${ic("ti-presentation")}</span>
+            <b>진행자</b>
+            <span>${fix("회차를 열어 입장 코드를 만들고,\n조별 현황을 큰 화면에 띄워요.")}</span>
+            <span class="role-go">진행자 화면 열기 ${ic("ti-arrow-right")}</span>
+          </a>
+        </div>
+        <p class="gate-foot">${fix("참가자는 진행자가 보여 주는 링크나 QR로 들어오면\n이 화면 없이 바로 입장 화면이 열려요.")}</p>
+      </section>`;
+    $("#g-player").onclick = () => { roleChosen = true; document.body.classList.remove("at-gate"); renderStart(); };
+  }
+
   function renderStart() {
     if (introStop) introStop();
     const saved = load();
@@ -829,6 +858,8 @@
     const canResume = !!(net && net.code && saved && saved.scene && saved.scene !== "start" && !saved.demo);
     const qsCode = new URLSearchParams(location.search).get("s") || "";
     const code0 = qsCode || (net && net.code) || "";
+    // 처음 화면: 진행자인지 참가자인지 고른다. 참가 링크(?s=코드)로 왔거나 이어하기가 있으면 바로 참가자 화면
+    if (!qsCode && !canResume && !roleChosen) return renderGate();
     const N = C.intro;
     main.innerHTML = `
       <section class="cine" id="cine">
@@ -1083,9 +1114,10 @@
         </header>
         ${clueNote()}
         <div class="objects">${room.objects.map((o, i) => {
-          const who = clueOwner(i, room.no);
+          const k = room.objects.slice(0, i).filter((x) => !x.shared).length; // 나눠 보는 단서 중 몇 번째인지
+          const who = o.shared ? null : clueOwner(k, room.no);
           return who ? `<button class="obj theirs" data-theirs="${esc(who.name)}"><span class="obj-ic">${ic("ti-lock")}</span>${o.label}<small>${esc(who.name)}님 단서</small></button>`
-            : `<button class="obj" data-obj="${i}"><span class="obj-ic">${ic(o.icon)}</span>${o.label}${NET && online() && NET.members().length > 1 ? "<small>내 단서</small>" : ""}</button>`;
+            : `<button class="obj" data-obj="${i}"><span class="obj-ic">${ic(o.icon)}</span>${o.label}${NET && online() && NET.members().length > 1 ? (o.shared ? "<small>모두 보기</small>" : "<small>내 단서</small>") : ""}</button>`;
         }).join("")}</div>
         <div class="card puzzle" id="puzzle"></div>
         <div class="card lockbox" id="lockbox"></div>
@@ -1190,7 +1222,7 @@
           <h3><i class="ti ti-photo" aria-hidden="true"></i> 역사 갤러리</h3>
           <p class="help">${prose(P.help)}</p>${P.alt ? `<p class="alt-hint"><i class="ti ti-hand-click" aria-hidden="true"></i>${prose(P.alt)}</p>` : ""}
           <ol class="wall">${st.slots.map((ci, i) => {
-            if (ci === null) return `<li class="slot empty" data-slot="${i}"><span>${i + 1}</span></li>`;
+            if (ci === null) return `<li class="slot empty ${P.yearSlots ? "year" : ""}" data-slot="${i}"><span>${P.yearSlots ? P.cards[i].year : i + 1}</span></li>`;
             const c = P.cards[ci];
             return `<li class="slot" data-slot="${i}">
               <div class="frame ${st.done ? "flipped" : ""}" ${st.done ? "" : `data-card="${ci}"`}>
@@ -1233,7 +1265,7 @@
           const ok = st.slots.every((ci, i) => P.cards[ci].year === P.cards[i].year);
           if (ok) { st.done = true; save(); draw(); toast("액자를 모두 제자리에 걸었어요!", "good"); return; }
           draw(); shake($(".wall", el));
-          toast("순서가 맞지 않아요.\n액자를 끌어서 자리를 바꿔 보세요.", "bad");
+          toast(P.yearSlots ? "연도가 맞지 않는 액자가 있어요.\n조원 단서로 다시 계산해 보세요." : "순서가 맞지 않아요.\n액자를 끌어서 자리를 바꿔 보세요.", "bad");
           return;
         }
         draw();
@@ -1242,123 +1274,43 @@
       draw();
     },
 
-    /* 방 2: 선 잇기 + 포스트잇 붙이기 + 문지르기 */
-    values(room, el) {
+    /* 방 2: 결정 고르기 → 문지르기
+     * 틀리면 어느 메모와 어긋나는지 알려 준다 (벌점 없음). 다시 생각하게 하는 게 목적 */
+    decision(room, el) {
       const P = room.puzzle;
-      const st = pz(room.id, () => ({ sit: {}, kw: {}, sel: null, ksel: null, scratched: false }));
-      // 원칙 순서를 섞어서 선이 엇갈리게 (상황 카드 순서와 같으면 너무 쉬움)
-      if (!st.prOrder) {
-        do { st.prOrder = shuffle(P.principles); } while (st.prOrder.some((p, k) => P.situations[k].answer === p));
-        save();
-      }
+      const st = pz(room.id, () => ({ pick: null, tried: [], scratched: false }));
       const draw = () => {
-        const sitDone = P.situations.every((s, i) => st.sit[i] === s.answer);
-        const kwDone = P.keywords.every((k, i) => st.kw[i] === k.answer);
+        const ok = st.pick === P.answer;
         el.innerHTML = `
-          <h3><i class="ti ti-cards" aria-hidden="true"></i> 상황 카드와 포스트잇</h3>
-          <p class="help">${prose(P.help)}</p>${P.alt ? `<p class="alt-hint"><i class="ti ti-hand-click" aria-hidden="true"></i>${prose(P.alt)}</p>` : ""}
-          <p class="sub-h">① 이 행동은 어떤 행동원칙일까요?</p>
-          <div class="connect" data-demo="connect">
-            <svg class="wires"></svg>
-            <div class="c-left">${P.situations.map((s, i) => `
-              <button class="c-card ${st.sit[i] ? "ok" : ""} ${st.sel === i ? "sel" : ""}" data-sit="${i}" ${st.sit[i] ? "disabled" : ""}>
-                <span>${flow(s.text)}</span><i class="dot"></i></button>`).join("")}</div>
-            <div class="c-right">${st.prOrder.map((p) => `
-              <button class="c-pr" data-pr="${p}"><i class="dot"></i>${p}</button>`).join("")}</div>
-          </div>
-          <p class="sub-h">② 포스트잇을 핵심가치 상자에 붙이세요</p>
-          <div class="notes" data-demo="postit">${P.keywords.map((k, i) => st.kw[i] ? "" :
-            `<button class="postit ${st.ksel === i ? "sel" : ""}" data-kw="${i}">${k.text}</button>`).join("") || `<p class="note">포스트잇을 모두 붙였어요.</p>`}</div>
-          <div class="boxes">${P.values.map((v) => `
-            <div class="vbox" data-box="${v}" role="button" tabindex="0"><b>${v}</b>
-              <span>${P.keywords.map((k, i) => st.kw[i] === v ? `<em>${k.text}</em>` : "").join("")}</span>
-            </div>`).join("")}</div>
-          ${sitDone && kwDone ? `
+          <h3>${ic("ti-git-fork")} ${esc(P.question)}</h3>
+          <p class="help">${prose(P.help)}</p>
+          <div class="choices">${P.options.map((o) => {
+            const bad = (st.tried || []).includes(o.id), win = ok && o.id === P.answer;
+            return `<button class="choice ${bad ? "bad" : ""} ${win ? "ok" : ""}" data-pick="${o.id}" ${ok || bad ? "disabled" : ""}>
+              <b class="ch-id">${o.id}</b><span>${flow(o.text)}</span>
+              ${bad ? `<small>${ic("ti-alert-circle")} 어긋나는 단서: ${esc(o.breaks)}</small>` : ""}
+              ${win ? `<small>${ic("ti-check")} 모든 메모를 지켰어요</small>` : ""}</button>`;
+          }).join("")}</div>
+          ${ok ? `
+            <ul class="principles">${P.principles.map((p) => `<li><b>${esc(p.name)}</b><span>${fix(p.why)}</span></li>`).join("")}</ul>
             <p class="done-msg"><i class="ti ti-sparkles" aria-hidden="true"></i> ${prose(P.doneText)}</p>
             <div class="scratch ${st.scratched ? "revealed" : ""}" data-demo="scratch" role="img" aria-label="화이트보드의 지워진 자리: ${P.scratchHidden}">
               <span class="hidden-text">${P.scratchHidden}</span>
               ${st.scratched ? "" : "<canvas></canvas>"}
             </div>` : ""}`;
-        wires();
-        bindConnect();
-        dnd(el, {
-          item: "[data-kw]", zone: "[data-box]",
-          drop: (item, z) => tryKw(+item.dataset.kw, z),
-          tap: (item) => { st.ksel = +item.dataset.kw; draw(); },
-          zoneTap: (z) => { if (st.ksel === null) toast("먼저 포스트잇을 고르세요."); else if (tryKw(st.ksel, z) === "bad") shake(z); }
-        });
-        if (sitDone && kwDone && !st.scratched) {
+        $$("[data-pick]", el).forEach((b) => (b.onclick = () => {
+          const id = b.dataset.pick, o = P.options.find((x) => x.id === id);
+          if (id === P.answer) { st.pick = id; save(); draw(); toast("모든 부서의 메모를 지키는 결정이에요!", "good"); return; }
+          st.tried = (st.tried || []).concat(id); save(); draw();
+          shake($(`[data-pick="${id}"]`, el));
+          toast(`이 결정은 <b>${esc(o.breaks)}</b>에 어긋나요.\n그 단서를 가진 조원에게 다시 물어보세요.`, "bad");
+        }));
+        if (ok && !st.scratched) {
           const sb = $(".scratch", el);
           scratch(sb, () => { st.scratched = true; save(); setTimeout(draw, 600); });
           demo(sb, "scratch");
         }
       };
-      const tryKw = (i, z) => {
-        if (P.keywords[i].answer === z.dataset.box) { st.kw[i] = z.dataset.box; st.ksel = null; save(); draw(); pop($(`[data-box="${z.dataset.box}"]`, el)); return "ok"; }
-        toast("이 상자가 아닌 것 같아요.", "bad"); return "bad";
-      };
-      const trySit = (i, p) => {
-        if (P.situations[i].answer === p) { st.sit[i] = p; st.sel = null; save(); draw(); return true; }
-        toast("다른 행동원칙에 더 가까워요.", "bad");
-        shake($(`[data-sit="${i}"]`, el));
-        return false;
-      };
-      // 맞힌 짝은 초록 선으로 고정
-      const wires = (temp) => {
-        const box = $(".connect", el), svg = $(".wires", el);
-        if (!box) return;
-        const b = box.getBoundingClientRect();
-        svg.setAttribute("width", b.width); svg.setAttribute("height", b.height);
-        const pt = (dot) => { const r = dot.getBoundingClientRect(); return [r.left + r.width / 2 - b.left, r.top + r.height / 2 - b.top]; };
-        let html = "";
-        P.situations.forEach((s, i) => {
-          if (!st.sit[i]) return;
-          const [x1, y1] = pt($(`[data-sit="${i}"] .dot`, el)), [x2, y2] = pt($(`[data-pr="${st.sit[i]}"] .dot`, el));
-          html += `<path class="wire ok" d="M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}"/>`;
-        });
-        if (temp) html += `<path class="wire ${temp.cls}" d="M${temp.x1},${temp.y1} C${(temp.x1 + temp.x2) / 2},${temp.y1} ${(temp.x1 + temp.x2) / 2},${temp.y2} ${temp.x2},${temp.y2}"/>`;
-        svg.innerHTML = html;
-      };
-      const bindConnect = () => {
-        const box = $(".connect", el);
-        $$("[data-sit]", el).forEach((card) => {
-          if (card.disabled) return;
-          const i = +card.dataset.sit;
-          card.addEventListener("pointerdown", (e) => {
-            if (e.button !== 0) return;
-            const b = box.getBoundingClientRect(), d = $(".dot", card).getBoundingClientRect();
-            const x1 = d.left + d.width / 2 - b.left, y1 = d.top + d.height / 2 - b.top;
-            const s0 = { x: e.clientX, y: e.clientY };
-            let dragging = false, over = null;
-            const mv = (ev) => {
-              if (!dragging && Math.hypot(ev.clientX - s0.x, ev.clientY - s0.y) < 6) return;
-              dragging = true; ev.preventDefault();
-              document.body.classList.add("grabbing");
-              const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-              const pr = hit && hit.closest("[data-pr]");
-              if (pr !== over) { over && over.classList.remove("over"); pr && pr.classList.add("over"); over = pr; }
-              wires({ x1, y1, x2: ev.clientX - b.left, y2: ev.clientY - b.top, cls: "drawing" });
-            };
-            const upf = () => {
-              removeEventListener("pointermove", mv); removeEventListener("pointerup", upf);
-              document.body.classList.remove("grabbing");
-              over && over.classList.remove("over");
-              if (!dragging) { st.sel = i; draw(); return; } // 클릭 대안: 카드 고르기
-              if (over && trySit(i, over.dataset.pr)) return;
-              wires(); // 틀리거나 빈 곳이면 선이 끊어짐
-            };
-            addEventListener("pointermove", mv, { passive: false });
-            addEventListener("pointerup", upf);
-          });
-          card.addEventListener("click", (e) => { if (e.detail === 0) { st.sel = i; draw(); } });
-        });
-        $$("[data-pr]", el).forEach((pr) => pr.addEventListener("click", () => {
-          if (st.sel === null) { toast("먼저 왼쪽 상황 카드를 고르세요."); return; }
-          trySit(st.sel, pr.dataset.pr);
-        }));
-        $$("[data-box]", el).forEach((z) => z.addEventListener("keydown", (e) => { if (e.key === "Enter") z.click(); }));
-      };
-      window.addEventListener("resize", () => { if (S.scene === room.id) wires(); });
       draw();
     },
 
@@ -1414,87 +1366,62 @@
       draw();
     },
 
-    /* 방 4: 탱크에 넣기 */
-    tanks(room, el) {
+    /* 방 4: 탱크 메모판. 균주와 정상/문제를 조원이 함께 표시한다 (정답 판정은 자물쇠에서)
+     * 값은 st.s5, st.v5처럼 탱크마다 따로 둬서 두 사람이 동시에 눌러도 서로 덮어쓰지 않는다 */
+    tanklog(room, el) {
       const P = room.puzzle;
-      const st = pz(room.id, () => ({ order: shuffle(P.samples.map((_, i) => i)), placed: {}, sel: null }));
+      const st = pz(room.id, () => ({}));
+      const no = (n) => String.fromCharCode(0x2460 + n - 1);
       const draw = () => {
-        const all = P.samples.every((_, i) => st.placed[i]);
         el.innerHTML = `
-          <h3><i class="ti ti-test-pipe" aria-hidden="true"></i> 발효 탱크</h3>
-          <p class="help">${prose(P.help)}</p>${P.alt ? `<p class="alt-hint"><i class="ti ti-hand-click" aria-hidden="true"></i>${prose(P.alt)}</p>` : ""}
-          <div class="tanks">${P.tanks.map((t) => {
-            const inside = P.samples.filter((s, i) => st.placed[i] === t.id);
-            const need = P.samples.filter((s) => s.tank === t.id).length;
-            const full = inside.length === need;
-            return `<div class="tank ${full ? "full" : ""}" data-tank="${t.id}" style="--c:${t.color}" role="button" tabindex="0" aria-label="${t.name} 탱크">
-              <span class="liquid" style="height:${(inside.length / need) * 100}%"><i></i><i></i><i></i></span>
-              <span class="tname">${t.name}</span>
-              <span class="tin">${inside.map((s) => `<em>${s.name}</em>`).join("")}</span>
-              ${full ? `<span class="tletter">${t.letter}</span>` : `<span class="tcount">${inside.length} / ${need}</span>`}
+          <h3>${ic("ti-test-pipe")} 발효 탱크 점검판</h3>
+          <p class="help">${prose(P.help)}</p>
+          <div class="tlog">${P.tanks.map((n) => {
+            const s = st["s" + n], v = st["v" + n];
+            return `<div class="tl ${v || ""}">
+              <span class="tl-no">${no(n)}</span>
+              <span class="tl-tank" aria-hidden="true"><i></i></span>
+              <p class="tl-cap">무엇을 만드나요?</p>
+              <div class="tl-row">${P.strains.map((x) => `<button class="chip ${s === x ? "on" : ""}" data-strain="${n}" data-x="${esc(x)}" aria-pressed="${s === x}">${esc(x)}</button>`).join("")}</div>
+              <p class="tl-cap">기준 안인가요?</p>
+              <div class="tl-row">
+                <button class="chip ${v === "ok" ? "on" : ""}" data-v="${n}" data-x="ok" aria-pressed="${v === "ok"}">${ic("ti-check")} 정상</button>
+                <button class="chip warn ${v === "bad" ? "on" : ""}" data-v="${n}" data-x="bad" aria-pressed="${v === "bad"}">${ic("ti-alert-triangle")} 문제</button>
+              </div>
             </div>`;
           }).join("")}</div>
-          <p class="sub-h">제품 샘플</p>
-          <div class="samples" data-demo="tanks">${st.order.filter((i) => !st.placed[i]).map((i) => {
-            const s = P.samples[i];
-            return `<button class="sample ${st.sel === i ? "sel" : ""}" data-s="${i}">
-              <img src="${s.img}" alt="${s.name}" loading="lazy"><b>${s.name}</b><small>${s.info}</small></button>`;
-          }).join("")}</div>
-          ${all ? `<p class="done-msg"><i class="ti ti-sparkles" aria-hidden="true"></i> ${prose(P.doneText)}</p>` : ""}`;
-        dnd(el, {
-          item: "[data-s]", zone: "[data-tank]",
-          drop: (item, z) => put(+item.dataset.s, z),
-          tap: (item) => { st.sel = +item.dataset.s; draw(); $(".tanks", el).scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "nearest" }); },
-          zoneTap: (z) => { if (st.sel === null) toast("먼저 제품 샘플을 고르세요."); else put(st.sel, z); }
-        });
-        $$("[data-tank]", el).forEach((z) => z.addEventListener("keydown", (e) => { if (e.key === "Enter") z.click(); }));
-      };
-      const put = (i, z) => {
-        if (P.samples[i].tank === z.dataset.tank) {
-          st.placed[i] = z.dataset.tank; st.sel = null; save(); draw();
-          pop($(`[data-tank="${z.dataset.tank}"]`, el));
-          return "ok";
-        }
-        z.classList.remove("reject"); void z.offsetWidth; z.classList.add("reject");
-        toast("탱크에서 거품이 튀어요!\n연구실 게시판을 참고하세요.", "bad");
-        return "bad";
+          <p class="note">${prose(P.note)}</p>`;
+        const toggle = (key, x) => { st[key] = st[key] === x ? null : x; save(); draw(); };
+        $$("[data-strain]", el).forEach((b) => (b.onclick = () => toggle("s" + b.dataset.strain, b.dataset.x)));
+        $$("[data-v]", el).forEach((b) => (b.onclick = () => toggle("v" + b.dataset.v, b.dataset.x)));
       };
       draw();
     },
 
-    /* 방 5: 호칭 고치기 + 용어 카드 뒤집기 */
-    lounge(room, el) {
+    /* 방 5: 일정표. 칸을 눌러 ○ → ✕ → 빈칸. 네 줄이 모두 ○인 열은 강조 */
+    schedule(room, el) {
       const P = room.puzzle;
-      const st = pz(room.id, () => ({ fixed: {}, flip: {}, quiz: {} }));
+      const st = pz(room.id, () => ({}));
+      const times = [];
+      for (let t = P.start; t < P.end; t += 0.5) times.push(t);
+      const lab = (t) => `${Math.floor(t)}:${t % 1 ? "30" : "00"}`;
       const draw = () => {
-        let ti = 0;
-        const tokens = P.message.filter((m) => typeof m !== "string").length;
-        const fixedAll = Object.keys(st.fixed).length === tokens;
-        const quizAll = P.quiz.every((_, i) => st.quiz[i]);
+        const allOk = times.map((_, c) => P.rows.every((_, r) => st[`c${r}_${c}`] === "o"));
         el.innerHTML = `
-          <h3><i class="ti ti-message-circle" aria-hidden="true"></i> 메신저 초안</h3>
-          <p class="help">${prose(P.help)}</p>${P.alt ? `<p class="alt-hint"><i class="ti ti-hand-click" aria-hidden="true"></i>${prose(P.alt)}</p>` : ""}
-          <div class="chat"><div class="bubble">${P.message.map((m) => {
-            if (typeof m === "string") return esc(m);
-            const i = ti++;
-            return st.fixed[i] ? `<span class="fixed nw">${m.right}</span>` : `<button class="wrongword nw" data-fix="${i}">${m.wrong}</button>`;
-          }).join("")}</div>
-          <p class="note">${fixedAll ? "✓ 호칭을 모두 고쳤어요!" : body(`어색한 호칭 ${tokens - Object.keys(st.fixed).length}개를\n눌러서 고쳐 보세요.`)}</p></div>
-          <h3><i class="ti ti-cards" aria-hidden="true"></i> 신입 생존 용어 카드</h3>
-          <div class="quiz cards4" data-demo="flip">${P.quiz.map((q, i) => st.flip[i] ? `
-            <div class="qcard flipin ${st.quiz[i] ? "ok" : ""}">
-              <p><b>Q${i + 1}.</b> ${body(q.q)}</p>
-              <div class="opts">${st.quiz[i] ? `<span class="tag">✓ ${q.options[q.answer]}</span>` :
-                q.options.map((o, j) => `<button class="btn small" data-q="${i}" data-a="${j}">${o}</button>`).join("")}</div>
-            </div>` : `
-            <button class="qcard back" data-flip="${i}"><span class="qb-no">Q${i + 1}</span><span>${fix("용어 카드\n눌러서 뒤집기")}</span></button>`).join("")}</div>
-          ${fixedAll && quizAll ? `<p class="done-msg"><i class="ti ti-sparkles" aria-hidden="true"></i> ${prose(P.doneText)}</p>` : ""}`;
-        $$("[data-fix]", el).forEach((b) => (b.onclick = () => { st.fixed[+b.dataset.fix] = true; save(); draw(); }));
-        $$("[data-flip]", el).forEach((b) => (b.onclick = () => { st.flip[+b.dataset.flip] = true; save(); draw(); }));
-        $$("[data-q]", el).forEach((b) => (b.onclick = () => {
-          const i = +b.dataset.q;
-          if (P.quiz[i].answer === +b.dataset.a) { st.quiz[i] = true; save(); draw(); }
-          else { shake(b.closest(".qcard")); toast("땡! 다시 골라 보세요.", "bad"); }
+          <h3>${ic("ti-calendar-time")} 오늘 오후 일정 맞추기</h3>
+          <p class="help">${prose(P.help)}</p>
+          <div class="sched-wrap"><table class="sched">
+            <thead><tr><th scope="col"></th>${times.map((t, c) => `<th scope="col" class="${allOk[c] ? "all" : ""}">${lab(t)}</th>`).join("")}</tr></thead>
+            <tbody>${P.rows.map((name, r) => `<tr><th scope="row">${esc(name)}</th>${times.map((t, c) => {
+              const v = st[`c${r}_${c}`];
+              return `<td class="${allOk[c] ? "all" : ""}"><button class="cell ${v || ""}" data-cell="${r}_${c}" aria-label="${esc(name)} ${lab(t)} ${v === "o" ? "가능" : v === "x" ? "안 됨" : "모름"}">${v === "o" ? "○" : v === "x" ? "✕" : ""}</button></td>`;
+            }).join("")}</tr>`).join("")}</tbody>
+          </table></div>
+          <p class="note">${allOk.some(Boolean) ? body("모두 ○인 칸이 생겼어요.\n그 칸의 시작 시각을 다이얼에 넣어 보세요.") : body("○ 가능 · ✕ 안 됨\n한 칸은 30분이에요.")}</p>`;
+        $$("[data-cell]", el).forEach((b) => (b.onclick = () => {
+          const k = "c" + b.dataset.cell, v = st[k];
+          st[k] = v === "o" ? "x" : v === "x" ? null : "o";
+          save(); draw();
         }));
       };
       draw();
@@ -1510,14 +1437,15 @@
   function renderAct2() {
     const A = C.act2, st = S.act2;
     if (st.done) return renderTwist();
-    const allQ = A.questions.every((_, i) => st.q[i]);
+    const allQ = true; // 확인 질문 없이 바로 추리
     // 조원 투표: 지금 접속한 조원의 과반이 같은 사람을 고르면 확정
     const team = online() && NET.members().length > 1;
     const members = online() ? NET.members() : [];
     const myId = online() ? NET.me.pid : "me";
     const votes = st.votes || {};
     const need = team ? Math.floor(members.length / 2) + 1 : 1;
-    const eviOwner = clueOwner(0, members.length - 1); // 출입 기록은 마지막에 들어온 조원이 본다
+    // 출입 기록은 마지막에 들어온 조원, 출입증 목록은 첫 조원이 본다 (2명 이상이면 서로 다른 사람)
+    const eviOwner = clueOwner(0, members.length - 1), badgeOwner = clueOwner(1, members.length - 1);
     main.innerHTML = `
       <section class="room">
         <header class="room-head">
@@ -1528,7 +1456,9 @@
         </header>
         ${clueNote()}
         <div class="objects">${eviOwner ? `<button class="obj theirs" data-theirs="${esc(eviOwner.name)}"><span class="obj-ic">${ic("ti-lock")}</span>${A.evidence.label}<small>${esc(eviOwner.name)}님 단서</small></button>`
-          : `<button class="obj" id="evi"><span class="obj-ic">${ic(A.evidence.icon)}</span>${A.evidence.label}</button>`}</div>
+          : `<button class="obj" id="evi"><span class="obj-ic">${ic(A.evidence.icon)}</span>${A.evidence.label}</button>`}
+          ${badgeOwner ? `<button class="obj theirs" data-theirs="${esc(badgeOwner.name)}"><span class="obj-ic">${ic("ti-lock")}</span>${A.badges.label}<small>${esc(badgeOwner.name)}님 단서</small></button>`
+          : `<button class="obj" id="badges"><span class="obj-ic">${ic(A.badges.icon)}</span>${A.badges.label}</button>`}</div>
         ${allQ && team ? `<p class="vote-note">${ic("ti-checkbox")} ${fix(`조원 ${need}명 이상이 같은 사람을 지목해야 확정돼요.\n다시 누르면 내 표를 옮길 수 있어요.`)}</p>` : ""}
         <div class="suspects" ${allQ ? 'data-demo="accuse"' : ""}>${A.suspects.map((s, i) => {
           const voters = members.filter((m) => votes[m.pid] === i);
@@ -1540,28 +1470,12 @@
             ${allQ ? holdBtn(`<i class="ti ti-hand-finger" aria-hidden="true"></i> ${team ? "길게 눌러 투표" : "길게 눌러 지목"}`, "small accuse").replace("<button", `<button data-accuse="${i}"`) : ""}
           </article>`;
         }).join("")}</div>
-        <div class="card">
-          <h3><i class="ti ti-search" aria-hidden="true"></i> 블라썸의 확인 질문</h3>
-          <p class="help">${prose(allQ ? "확인 질문을 모두 맞혔어요.\n이제 레시피북을 꺼낸 사람을 지목하세요!" : "질문 3개를 모두 맞혀야\n지목할 수 있어요.")}</p>
-          <div class="quiz">${A.questions.map((q, i) => `
-            <div class="qcard ${st.q[i] ? "ok" : ""}">
-              <p><b>Q${i + 1}.</b> ${body(q.q)}</p>
-              <div class="opts">${st.q[i] ? `<span class="tag">✓ ${q.options[q.answer]}</span>` :
-                q.options.map((o, j) => `<button class="btn small" data-q="${i}" data-a="${j}">${o}</button>`).join("")}</div>
-            </div>`).join("")}</div>
-        </div>
       </section>`;
     bindTheirs();
     if ($("#evi")) $("#evi").onclick = () => openModal(`${ic(A.evidence.icon)} ${A.evidence.title}`, "", (body) =>
-      flashlight(body, `<table class="tbl log"><tr><th>시각</th><th>기록</th><th>사원증</th></tr>${A.evidence.rows.map((r) =>
+      flashlight(body, `<table class="tbl log"><tr><th>시각</th><th>기록</th><th>출입증</th></tr>${A.evidence.rows.map((r) =>
         `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</table>`, A.evidence.note));
-    $$("[data-q]").forEach((b) => (b.onclick = () => {
-      const i = +b.dataset.q;
-      if (A.questions[i].answer === +b.dataset.a) {
-        st.q[i] = true; save(); renderAct2();
-        if (A.questions.every((_, k) => st.q[k])) { toast("지목 버튼이 열렸어요!", "good"); setTimeout(() => runDemos(), 300); }
-      } else { shake(b.closest(".qcard")); toast("증언과 출입 기록을 다시 확인해 보세요.", "bad"); }
-    }));
+    if ($("#badges")) $("#badges").onclick = () => openModal(`${ic(A.badges.icon)} ${A.badges.title}`, body(A.badges.body));
     $$("[data-accuse]").forEach((b) => longPress(b, 2000, () => {
       const i = +b.dataset.accuse;
       if (team) {
@@ -1824,7 +1738,7 @@
           <div><small>최종 기록</small><b>${fmt(elapsed())}</b></div>
           <div><small>힌트 사용</small><b>${S.hintsUsed}회</b></div>
           <div><small>벌점 시간</small><b>${fmt(S.penalty)}</b></div>
-          ${online() ? `<div><small>상생 보너스</small><b>−${fmt(bonus())}</b></div><div><small>첫 탈출 메달</small><b>${NET.firstsOf(NET.team.id)}개</b></div>` : ""}
+          ${online() ? `<div><small>첫 탈출 메달</small><b>${NET.firstsOf(NET.team.id)}개</b></div>` : ""}
         </div>
         <canvas id="cert" width="1200" height="850" aria-label="수료증"></canvas>
         <div class="row">
@@ -1894,7 +1808,7 @@
   }
 
   /* ═════════════════════════════════════════
-   *  소통: 우리 조 채팅 · 전체 채팅 · 조별 현황 · SOS와 도와주기
+   *  소통: 우리 조 채팅 · 전체 채팅 · 조별 현황
    * ═════════════════════════════════════════ */
   let chatTab = "team", chatOpen = false, chatReady = false;
   const unread = { team: 0, all: 0 };
@@ -1922,49 +1836,9 @@
     const m = NET.members();
     bar.hidden = false;
     bar.innerHTML = `<b>${esc(NET.team.name)}</b><span class="tb-people" title="${esc(m.map((p) => p.name).join(", "))}">${m.slice(0, 5).map((p) =>
-      `<span class="av ${p.pid === NET.me.pid ? "me" : ""}" aria-hidden="true">${esc(p.name.trim().charAt(0))}</span>`).join("")}<small>${m.length}명 접속</small></span>
-      ${isEnvoy() ? `<span class="envoy-badge" title="다른 조의 SOS를 맡아요">${ic("ti-heart-handshake")} 상생 대사</span>` : ""}`;
+      `<span class="av ${p.pid === NET.me.pid ? "me" : ""}" aria-hidden="true">${esc(p.name.trim().charAt(0))}</span>`).join("")}<small>${m.length}명 접속</small></span>`;
   }
 
-  /* 상생 대사: 4명 이상인 조에서 마지막에 들어온 조원.
-   * 다른 조가 각자 게임에 바빠도 SOS를 놓치지 않도록, 이 사람 화면에는 도와줄 수 있는 SOS가 바로 뜬다 */
-  function isEnvoy() {
-    if (!online()) return false;
-    const m = NET.members();
-    return m.length >= 4 && m[m.length - 1].pid === NET.me.pid;
-  }
-  function helpedBy(sos) { return NET.messages.filter((x) => x.scope === "help" && x.meta.sos == sos.id); }
-  function openHelp(m) {
-    const quick = ["어떤 순서·기준이 있는지 먼저 찾아보세요.", "다른 조원 화면의 단서를 합쳐 보세요.", "방 이름과 주제를 다시 읽어 보세요."];
-    openModal(`${ic("ti-heart-handshake")} ${esc(m.meta.team)} 도와주기`, `
-      <p>${fix(`${keyLabel(m.meta.key)}에서 막혔대요.\n정답 대신 생각할 방향을 알려 주세요.`)}</p>
-      <textarea id="help-in" maxlength="200" rows="3" placeholder="예: 액자 속 연도를 오래된 순서로 생각해 보세요."></textarea>
-      <div class="h-quick">${quick.map((q) => `<button type="button" class="btn small" data-qh="${esc(q)}">${esc(q)}</button>`).join("")}</div>
-      <p class="note">${fix("상대 조가 '도움 됐어요'를 누르면\n우리 기록에서 30초가 빠져요.")}</p>
-      <div class="row"><button class="btn primary" id="help-go">도움 보내기</button></div>`, (bx) => {
-      $$("[data-qh]", bx).forEach((q) => (q.onclick = () => { $("#help-in", bx).value = q.dataset.qh; }));
-      $("#help-go", bx).onclick = async () => {
-        const v = $("#help-in", bx).value.trim();
-        if (!v) { shake($("#help-in", bx)); return; }
-        const ans = HELP_BLOCK[m.meta.key];
-        if (ans && v.replace(/\s/g, "").toUpperCase().includes(ans)) { toast("정답은 빼고 방향만 알려 주세요!", "bad"); return; }
-        try { await NET.post("help", v, { to: m.team_id, toTeam: m.meta.team, key: m.meta.key, sos: m.id }); closeModal(); $("#nudge").hidden = true; toast("도움을 보냈어요.\n상대 조가 '도움 됐어요'를 누르면 −30초!", "good"); }
-        catch (err) { toast("보내지 못했어요.", "bad"); }
-      };
-      setTimeout(() => $("#help-in", bx).focus(), 50);
-    });
-  }
-  // 도와줄 때 그 지점의 정답을 그대로 적지 못하게 (진행자용 정답표와 같음, 띄어쓰기 없이 비교)
-  const HELP_BLOCK = { room1: "ONLYONE", room2: "국가사회", room3: "3715", room4: "BIO8", act2: "한햇", "act3-0": "4269", "act3-1": "⑤→⑥", "act3-2": "건강→즐거움→편리" };
-  function envoyNudge(m) {
-    const n = $("#nudge");
-    n.innerHTML = `<p>${ic("ti-lifebuoy")} ${fix(`${josa(m.meta.team, "이", "가")}\n${keyLabel(m.meta.key)}에서 막혔어요.`)}</p>
-      <div class="row"><button class="btn small primary" id="nudge-help">${ic("ti-heart-handshake")} 도와주기</button></div>
-      <button class="x" aria-label="닫기"><i class="ti ti-x" aria-hidden="true"></i></button>`;
-    n.hidden = false;
-    $(".x", n).onclick = () => (n.hidden = true);
-    $("#nudge-help", n).onclick = () => openHelp(m);
-  }
   // 지점마다 '가장 먼저 연 조'가 새로 나오면 모두에게 알림
   let firstsSeen = null;
   function watchFirsts() {
@@ -1989,20 +1863,11 @@
     NET.on("message", (m, updated) => {
       if (!online() || S.scene === "start") return;
       const mine = m.team_id === NET.team.id;
-      if (updated) { // '도움 됐어요'를 받음
-        if (m.scope === "help" && mine && m.meta.thanked) { toast(`${ic("ti-heart-handshake")} <b>${esc(josa(m.meta.toTeam, "이", "가"))}</b> '도움 됐어요'를 눌렀어요.\n상생 보너스 −30초!`, "good", 5000); tick(); }
-        drawChat(); return;
-      }
+      if (updated) { drawChat(); return; }
       if (m.scope === "team" && !mine) return;
       if (m.scope === "letter") { drawEndBoards(); return; }
       const fromMe = m.meta && m.meta.pid === NET.me.pid;
       if (m.scope === "notice") toast(`${ic("ti-speakerphone")} <b>진행자</b> ${esc(m.body)}`, "notice", 7000);
-      if (m.scope === "sos" && !mine) {
-        const canHelp = m.meta.key && S.solved[m.meta.key];
-        if (canHelp && isEnvoy()) envoyNudge(m);
-        else if (canHelp) toast(`${ic("ti-lifebuoy")} <b>${esc(josa(m.meta.team, "이", "가"))}</b> SOS를 보냈어요.\n우리가 푼 곳이에요. 전체 탭에서 도와주세요!`, "", 4500);
-      }
-      if (m.scope === "help" && m.meta.to === NET.team.id) toast(`${ic("ti-heart-handshake")} <b>${esc(josa(m.meta.team, "이", "가"))}</b> 도움을 보냈어요!\n전체 탭에서 '도움 됐어요'를 눌러 주세요.`, "good", 5000);
       const tab = tabOf(m);
       if (tab && !fromMe && !(chatOpen && chatTab === tab)) unread[tab]++;
       drawChat();
@@ -2036,21 +1901,6 @@
     const mine = m.team_id === NET.team.id, me = m.meta && m.meta.pid === NET.me.pid;
     const who = `<span class="m-who">${esc(m.author)}${m.scope !== "team" && m.meta && m.meta.team ? `<em>${esc(m.meta.team)}</em>` : ""}</span><time>${hhmm(m.created_at)}</time>`;
     if (m.scope === "notice") return `<li class="m notice">${ic("ti-speakerphone")}<div><span class="m-who">진행자 공지</span><p>${esc(m.body)}</p></div></li>`;
-    if (m.scope === "sos") {
-      const canHelp = !mine && m.meta.key && S.solved[m.meta.key];
-      const got = helpedBy(m).length;
-      return `<li class="m sos">${ic("ti-lifebuoy")}<div>${who}<p><b>SOS · ${esc(keyLabel(m.meta.key))}</b> ${esc(m.body)}</p>
-        ${got ? `<small>${ic("ti-heart-handshake")} 도움 ${got}개 도착</small>` : ""}
-        ${canHelp ? `<button class="btn small" data-help="${m.id}">${ic("ti-heart-handshake")} 도와주기</button>` : ""}
-        ${!mine && m.meta.key && !S.solved[m.meta.key] ? `<small>우리 조도 아직 못 푼 곳이에요.</small>` : ""}</div></li>`;
-    }
-    if (m.scope === "help") {
-      const toUs = m.meta.to === NET.team.id;
-      return `<li class="m help ${toUs ? "to-us" : ""}">${ic("ti-heart-handshake")}<div>${who}
-      <p><b>→ ${esc(m.meta.toTeam || "")}</b> ${esc(m.body)}</p>
-      ${m.meta.thanked ? `<small>${ic("ti-thumb-up")} 도움 됐어요 · ${esc(m.meta.team)} −30초</small>`
-        : toUs ? `<button class="btn small" data-thank="${m.id}">${ic("ti-thumb-up")} 도움 됐어요</button>` : ""}</div></li>`;
-    }
     return `<li class="m ${me ? "me" : ""}"><div>${who}<p>${esc(m.body)}</p></div></li>`;
   }
 
@@ -2062,8 +1912,8 @@
         <span class="b-rank">${p.done ? i + 1 : "–"}</span>
         <div class="b-main"><b>${esc(t.name)}</b>
           <span class="b-bar"><i style="width:${p.pct}%"></i></span>
-          <small>${p.done ? "탈출 완료" : p.label} · ${ic("ti-users")} ${NET.onlineOf(t.id).length}명 · 힌트 ${p.hints}${p.firsts ? ` · ${ic("ti-medal")} 첫 탈출 ${p.firsts}` : ""}${p.thanks ? ` · ${ic("ti-heart-handshake")} 상생 ${p.thanks}` : ""}</small></div>
-        <span class="b-time">${NET.fmt(p.sec)}${p.bonus ? `<small>상생 −${NET.fmt(p.bonus)}</small>` : ""}</span>
+          <small>${p.done ? "탈출 완료" : p.label} · ${ic("ti-users")} ${NET.onlineOf(t.id).length}명 · 힌트 ${p.hints}${p.firsts ? ` · ${ic("ti-medal")} 첫 탈출 ${p.firsts}` : ""}${p.clean ? ` · ${ic("ti-bulb-off")} 힌트 없이 ${p.clean}` : ""}</small></div>
+        <span class="b-time">${NET.fmt(p.sec)}</span>
       </li>`).join("")}</ol>`;
   }
 
@@ -2086,36 +1936,8 @@
     if (chatTab === "board") { bodyEl.innerHTML = boardHtml(); return; }
     const list = NET.messages.filter((m) => tabOf(m) === chatTab && (chatTab !== "team" || m.team_id === NET.team.id));
     bodyEl.innerHTML = list.length ? `<ul class="msgs">${list.map(msgHtml).join("")}</ul>`
-      : `<p class="note center">${fix(chatTab === "team" ? "조원과 단서를 나누는 곳이에요.\n내 화면의 단서를 적어 보세요." : "모든 조가 함께 보는 곳이에요.\n막히면 힌트 창에서 SOS를 보낼 수 있어요.")}</p>`;
+      : `<p class="note center">${fix(chatTab === "team" ? "조원과 단서를 나누는 곳이에요.\n내 화면의 단서를 적어 보세요." : "모든 조가 함께 보는 곳이에요.\n진행자 공지도 여기에 남아요.")}</p>`;
     bodyEl.scrollTop = bodyEl.scrollHeight;
-    $$("[data-help]", bodyEl).forEach((b) => (b.onclick = () => openHelp(NET.messages.find((x) => String(x.id) === b.dataset.help))));
-    $$("[data-thank]", bodyEl).forEach((b) => (b.onclick = async () => {
-      b.disabled = true;
-      try { await NET.thank(+b.dataset.thank); toast("고마움을 전했어요!", "good"); }
-      catch (err) { b.disabled = false; toast("보내지 못했어요.", "bad"); }
-    }));
-  }
-
-  // 이 지점을 이미 푼 다른 조가 있나? (없으면 우리가 선두라 도와줄 조가 없다 → 진행자에게 바로)
-  const solvedByOthers = (key) => Object.values(NET.teams).filter((t) => t.id !== NET.team.id && t.state && t.state.solved && t.state.solved[key]);
-  function sosButton(key) {
-    if (!online() || !key) return "";
-    const sent = S.seen["sos-" + key], n = solvedByOthers(key).length;
-    return `<div class="sos-box"><p>${fix(n ? `벌점 없이 도움을 청할 수 있어요.\n이 곳을 푼 조가 ${n}개 있어요.` : "아직 이 곳을 푼 조가 없어요.\nSOS는 진행자에게 바로 가요.")}</p>
-      <button class="btn" id="sos-go" ${sent ? "disabled" : ""}>${ic("ti-lifebuoy")} ${sent ? "SOS를 보냈어요" : n ? "다른 조에 SOS 보내기" : "진행자에게 SOS 보내기"}</button></div>`;
-  }
-  function bindSos(key, bx) {
-    const b = $("#sos-go", bx);
-    if (!b) return;
-    b.onclick = async () => {
-      const toHost = !solvedByOthers(key).length;
-      try {
-        await NET.post("sos", "막혔어요. 생각할 방향을 알려 주세요!", { key, toHost });
-        S.seen["sos-" + key] = true; save();
-        b.disabled = true; b.innerHTML = `${ic("ti-lifebuoy")} SOS를 보냈어요`;
-        toast(toHost ? "진행자에게 SOS를 보냈어요.\n곧 도와드리러 갈게요." : "SOS를 보냈어요.\n도움이 오면 알려 드릴게요.", "good");
-      } catch (err) { toast("보내지 못했어요.", "bad"); }
-    };
   }
 
   function drawEndBoards() {

@@ -78,7 +78,7 @@
         if (this.messages.length > 300) this.messages.shift();
         emit("message", p.new);
       });
-      // '도움 됐어요'처럼 메시지가 바뀐 경우
+      // 메시지가 바뀐 경우 (지금은 쓰지 않지만 진행자 수정 대비)
       ch.on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: "session_id=eq." + sid }, (p) => {
         const i = this.messages.findIndex((m) => m.id === p.new.id);
         if (i >= 0) this.messages[i] = p.new;
@@ -90,11 +90,14 @@
         emit("presence", this.online);
       });
       this.channel = ch;
+      let joinedOnce = false;
       await new Promise((res) => {
         ch.subscribe(async (status) => {
           emit("status", status);
           if (status === "SUBSCRIBED") {
             if (this.me) await this.track();
+            if (joinedOnce) this.resync(); // 연결이 끊겼다 다시 붙음: 그사이 놓친 변경을 받아 온다
+            joinedOnce = true;
             res();
           }
         });
@@ -102,6 +105,35 @@
       });
       this.active = !!this.me;
       emit("teams", this.teams);
+      // 실시간 소식을 놓쳐도 15초 안에는 따라잡도록 가볍게 확인 (탭이 다시 보일 때도 바로)
+      clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(() => this.resync(), 15000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") this.resync(); });
+    },
+
+    /* 서버의 최신 조 상태·메시지와 맞추기. 놓친 것만 반영한다 */
+    async resync() {
+      if (!this.session) return;
+      const sid = this.session.id;
+      const lastId = this.messages.length ? this.messages[this.messages.length - 1].id : 0;
+      const [{ data: teams }, { data: msgs }] = await Promise.all([
+        db.from("teams").select("*").eq("session_id", sid),
+        db.from("messages").select("*").eq("session_id", sid).gt("id", lastId).order("id").limit(100)
+      ]);
+      let changed = false;
+      (teams || []).forEach((t) => {
+        const old = this.teams[t.id];
+        if (!old || old.ver !== t.ver) { this.teams[t.id] = t; changed = true; }
+      });
+      if (changed) emit("teams", this.teams);
+      const mine = this.team && this.teams[this.team.id];
+      if (mine) this.gotState(mine.state, mine.ver);
+      (msgs || []).forEach((m) => {
+        if (this.messages.some((x) => x.id === m.id)) return;
+        this.messages.push(m);
+        if (this.messages.length > 300) this.messages.shift();
+        emit("message", m);
+      });
     },
 
     scene: "",
@@ -151,15 +183,16 @@
     timeScale: Number(new URLSearchParams(location.search).get("timescale")) || 1,
     STEPS: ["prologue", "room1", "room2", "room3", "room4", "room5", "act2", "act3", "ending"],
     STEP_LABEL: ["프롤로그", "로비", "회의실", "키친", "연구소", "라운지", "추리", "캡슐", "엔딩"],
-    /* 기록 = 걸린 시간 + 힌트·오답 벌점 − 상생 보너스 */
+    /* 기록 = 걸린 시간 + 힌트·오답 벌점. clean = 힌트 없이 푼 지점 수 (생각왕) */
     progress(t) {
       const s = (t && t.state) || {};
       const idx = Math.max(0, this.STEPS.indexOf(s.scene));
       const raw = s.start ? (((s.end || Date.now()) - s.start) / 1000) * this.timeScale : 0;
-      const sec = Math.max(0, raw + (s.penalty || 0) - (t.bonus || 0));
+      const sec = Math.max(0, raw + (s.penalty || 0));
       const solved = Object.keys(s.solved || {}).filter((k) => s.solved[k]).length;
+      const hl = s.hintLv || {}, clean = Object.keys(s.clearedAt || {}).filter((k) => !hl[k]).length;
       return { idx, solved, label: s.start ? this.STEP_LABEL[idx] : "대기", pct: s.end ? 100 : Math.round((idx / (this.STEPS.length - 1)) * 100),
-        done: !!s.end, sec, hints: s.hintsUsed || 0, help: t.help_count || 0, thanks: t.thanks || 0, bonus: t.bonus || 0,
+        done: !!s.end, sec, hints: s.hintsUsed || 0, clean,
         firsts: this.firstsOf(t.id) };
     },
     /* 지점마다 가장 먼저 푼 조 { key: teamId } */
@@ -175,11 +208,6 @@
     ranking() {
       return Object.values(this.teams).map((t) => ({ t, p: this.progress(t) })).sort((a, b) =>
         (b.p.done - a.p.done) || (a.p.done ? a.p.sec - b.p.sec : (b.p.solved - a.p.solved) || (a.p.sec - b.p.sec)));
-    },
-    async thank(msgId) {
-      const { data, error } = await db.rpc("thank_help", { p_player: this.me.pid, p_secret: this.me.secret, p_msg: msgId });
-      if (error) throw new Error(error.message);
-      return data;
     },
     fmt(sec) { sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); },
     onlineOf(teamId) { return this.online.filter((p) => p.team === teamId); }

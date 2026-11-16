@@ -1,29 +1,4 @@
-/* ═════════ CJ 전용 서체 (CJ ONLYONE) ═════════
- * cj.co.kr에서 쓰는 웹 글꼴 파일을 assets/fonts에 넣어 함께 배포한다.
- * 그래서 CJ 서체가 설치되지 않은 PC·휴대폰에서도 CJ ONLYONE으로 보인다.
- * 굵기: 300 가는 · 400 본문 · 600 강조 · 700 제목
- * 제목 전용 서체는 공개된 파일이 없어 같은 서체의 700을 쓴다.
- */
-@font-face { font-family: "CJ ONLYONE"; font-weight: 300; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_300.woff2") format("woff2"); }
-@font-face { font-family: "CJ ONLYONE"; font-weight: 400 500; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_400.woff2") format("woff2"); }
-@font-face { font-family: "CJ ONLYONE"; font-weight: 600; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_600.woff2") format("woff2"); }
-@font-face { font-family: "CJ ONLYONE"; font-weight: 700 900; font-display: swap; src: url("../assets/fonts/CJ_ONLYONE_700.woff2") format("woff2"); }
-
-:root {
-  --font-title: "CJ ONLYONE", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-body: "CJ ONLYONE", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --red: #E8392B;
-  --orange: #F39200;
-  --yellow: #FFC20E;
-  --ink: #1F1F1F;
-  --sub: #6B6B6B;
-  --line: #E9E4DC;
-  --bg: #FBF8F3;
-  --card: #FFFFFF;
-  --good: #1AA260;
-  --radius: 16px;
-  --shadow: 0 6px 24px rgba(60, 40, 20, .08);
-}
+/* 색·간격·서체 변수와 공통 컴포넌트는 css/system.css (디자인 규칙)에 있다. 이 파일에는 새 색 값을 적지 않는다. */
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -572,15 +547,7 @@ input:focus, textarea:focus { outline: none; border-color: var(--orange); }
  *  - 간격은 8의 배수, 제목↔본문 < 본문↔버튼
  *  - 브랜드 빨강·주황은 면에만, 글자에는 진한 색 (대비 4.5:1 이상)
  * ═════════════════════════════════════════════════════════ */
-:root {
-  --red-ink: #C8281C;     /* 흰 글자 5.56:1 */
-  --orange-ink: #B35F00;  /* 흰 글자 4.61:1 */
-  --good-ink: #0E7A45;    /* 흰 배경 5.40:1 */
-  --muted-ink: #6B5A44;
-  --w-body: 36em;         /* 본문 한 줄 최대 */
-  --w-card: 26em;         /* 말풍선·카드 안 */
-  --w-pop: 20em;          /* 팝업·결과 문구 */
-}
+/* 진한 글자 색(--red-ink 등)과 너비 변수는 css/system.css로 옮겼다 */
 
 /* 기본 리듬 */
 body { line-height: 1.65; }
@@ -681,17 +648,7 @@ h3 { margin: 0 0 8px; }
  *  - 단색 빨강 버튼, 입체감은 움직임으로
  *  - 이모지 대신 선 아이콘(Tabler)
  * ═════════════════════════════════════════════════════════ */
-:root {
-  --bg: #F7F5F2;
-  --ink: #17171A;
-  --sub: #5E5E66;
-  --line: rgba(23,23,26,.08);
-  --glass: rgba(255,255,255,.72);
-  --glass-line: rgba(255,255,255,.9);
-  --soft-shadow: 0 24px 60px -24px rgba(40,30,25,.24), 0 2px 6px rgba(40,30,25,.04);
-  --red-soft: #FDECEA;
-  --spring: cubic-bezier(.2,.9,.3,1.15);
-}
+/* 이 테마의 색 변수(--bg, --glass 등)는 css/system.css로 옮겼다 */
 body { background:
   radial-gradient(42vw 42vw at 85% 10%, rgba(243,146,0,.08), transparent 70%),
   radial-gradient(36vw 36vw at 10% 90%, rgba(200,40,28,.06), transparent 70%),
@@ -987,8 +944,6 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
 .clue.rec { --c: #999; }
 .memo-pad { width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); font: inherit; resize: vertical; }
 
-.sos-box { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); text-align: center; }
-.sos-box p { font-size: 14px; color: var(--sub); margin: 0 0 8px; }
 .toast.notice { background: #1B3A6B; }
 
 /* 소통 창 */
@@ -1028,13 +983,6 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
 .m.notice p { background: #E8EEF8; border-color: #C9D6EC; }
 .m.notice > .ti { color: #1B3A6B; margin-top: 0; }
 .m.notice .m-who { color: #1B3A6B; }
-.m.sos p { background: #FDECEA; border-color: #F6C9C4; }
-.m.sos > .ti { color: var(--red-ink); }
-.m.sos .btn { margin-top: 6px; }
-.m.sos small { display: block; margin-top: 4px; font-size: 12px; color: var(--sub); }
-.m.help p { background: #E7F6EE; border-color: #BDE5CF; }
-.m.help > .ti { color: var(--good-ink); }
-.m.help.to-us p { outline: 2px solid var(--good); }
 
 /* 조별 현황판 */
 .ranks { text-align: left; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -1055,11 +1003,55 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
 .lw-card blockquote { margin: 0 0 8px; font-size: 15px; line-height: 1.55; }
 .lw-card figcaption { font-size: 12px; color: var(--sub); }
 
-/* 경쟁·상생 */
-.envoy-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--good-ink); color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; }
+/* 경쟁 */
 .b-time { display: flex; flex-direction: column; align-items: flex-end; }
 .b-time small { font-size: 11px; font-weight: 600; color: var(--good-ink); }
-.m.help small { display: block; margin-top: 4px; font-size: 12px; color: var(--good-ink); }
-.m.help .btn, .m.sos .btn { margin-top: 6px; }
 .h-quick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .nudge .row { margin-top: 8px; }
+
+/* ───────── v2 퍼즐: 결정 고르기 · 탱크 점검판 · 일정표 · 연도 고리 ───────── */
+.slot.empty.year span { font-size: 15px; color: #8C7A5E; letter-spacing: .02em; }
+
+.choices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.choice { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: start; text-align: left; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: #FFFDF9; font: inherit; color: var(--ink); cursor: pointer; word-break: keep-all; }
+.choice:hover:not(:disabled) { border-color: var(--orange); background: #FFF6E6; }
+.choice .ch-id { grid-row: span 2; width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 15px; }
+.choice small { grid-column: 2; font-size: 13px; font-weight: 600; }
+.choice.bad { opacity: .75; background: #FDF3F2; border-color: #F6C9C4; cursor: default; }
+.choice.bad .ch-id { background: var(--red-ink); }
+.choice.bad small { color: var(--red-ink); }
+.choice.ok { border: 2px solid var(--good-ink); background: #F4FBF7; opacity: 1; cursor: default; }
+.choice.ok .ch-id { background: var(--good-ink); }
+.choice.ok small { color: var(--good-ink); }
+.choice:disabled { color: var(--ink); }
+.principles { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.principles li { padding: 10px 12px; border-radius: 12px; background: #FFF6E6; display: flex; flex-direction: column; gap: 2px; word-break: keep-all; }
+.principles b { color: #9A5B00; }
+.principles span { font-size: 13px; color: var(--sub); }
+
+.tlog { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tl { border: 2px solid var(--line); border-radius: 16px; padding: 12px 10px; text-align: center; background: #fff; word-break: keep-all; }
+.tl.ok { border-color: var(--good); }
+.tl.bad { border-color: var(--red-ink); background: #FDF3F2; }
+.tl-no { display: block; font-size: 26px; font-weight: 700; }
+.tl-tank { display: block; width: 46px; height: 64px; margin: 4px auto 6px; border: 3px solid #9DB8D9; border-radius: 20px 20px 8px 8px; position: relative; overflow: hidden; }
+.tl-tank i { position: absolute; left: 0; right: 0; bottom: 0; height: 60%; background: #CFE0F5; }
+.tl.bad .tl-tank { border-color: var(--red-ink); }
+.tl.bad .tl-tank i { background: #F6C9C4; height: 30%; }
+.tl-cap { margin: 8px 0 4px; font-size: 12px; color: var(--sub); }
+.tl-row { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.chip:hover { border-color: var(--orange); }
+.chip.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.chip.warn.on { background: var(--red-ink); border-color: var(--red-ink); }
+
+.sched-wrap { overflow-x: auto; }
+.sched { border-collapse: separate; border-spacing: 3px; margin: 0 auto; }
+.sched th { font-size: 13px; font-weight: 600; color: var(--sub); padding: 2px 4px; white-space: nowrap; }
+.sched th[scope="row"] { text-align: right; color: var(--ink); padding-right: 8px; }
+.sched thead th.all { color: var(--good-ink); }
+.sched td.all { background: #E7F6EE; border-radius: 10px; }
+.sched .cell { width: 44px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-size: 18px; font-weight: 700; cursor: pointer; }
+.sched .cell:hover { border-color: var(--orange); }
+.sched .cell.o { color: var(--good-ink); border-color: #BDE5CF; background: #F4FBF7; }
+.sched .cell.x { color: var(--red-ink); border-color: #F6C9C4; background: #FDF3F2; }

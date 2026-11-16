@@ -1,7 +1,7 @@
 /* 3개 조 × 5명 시뮬레이션: node tools/simulate.js
  * - 진짜 Supabase 서버에 봇 15명이 입장해서, 브라우저와 같은 함수로 게임을 진행한다.
  * - 시간 압축: 게임 1분 = 실제 G밀리초 (기본 3초). 결과는 게임 분으로 바꿔 보여 준다.
- * - 조마다 실력(속도)이 다르고, 막히면 SOS 또는 힌트를 고른다. 각 조의 5번째 조원이 '상생 대사'로 다른 조 SOS를 맡는다.
+ * - 조마다 실력(속도)이 다르다. 오래 막히면 힌트를 열지, 힌트 없이 더 생각할지 고른다 (생각왕 경쟁).
  * - 끝나면 진행자 화면 링크와 결과표를 출력한다. 회차는 지우지 않는다 (진행자 화면에서 보려고).
  */
 "use strict";
@@ -71,14 +71,14 @@ function presence(sessionId, meta) {
   });
 }
 
-/* ── 게임 데이터 ── */
+/* ── 게임 데이터 (v2: 단서를 합쳐 추리하는 퍼즐이라 방마다 5~7분) ── */
 const SPOTS = [
-  { key: "room1", scene: "room1", label: "로비", base: 4, reward: { id: "onlyone", label: "열쇠 단어 ONLYONE", icon: "ti-key" } },
-  { key: "room2", scene: "room2", label: "회의실", base: 5 },
-  { key: "room3", scene: "room3", label: "키친", base: 4 },
-  { key: "room4", scene: "room4", label: "연구소", base: 5 },
-  { key: "room5", scene: "room5", label: "라운지", base: 3.5 },
-  { key: "act2", scene: "act2", label: "2막 추리", base: 5, reward: { id: "health", label: "단어 조각 '건강'", icon: "ti-puzzle" } },
+  { key: "room1", scene: "room1", label: "로비", base: 5.5, reward: { id: "onlyone", label: "열쇠 단어 ONLYONE", icon: "ti-key" } },
+  { key: "room2", scene: "room2", label: "회의실", base: 6 },
+  { key: "room3", scene: "room3", label: "키친", base: 5 },
+  { key: "room4", scene: "room4", label: "연구소", base: 6 },
+  { key: "room5", scene: "room5", label: "라운지", base: 5.5 },
+  { key: "act2", scene: "act2", label: "2막 추리", base: 4.5, reward: { id: "health", label: "단어 조각 '건강'", icon: "ti-puzzle" } },
   { key: "act3-0", scene: "act3", label: "캡슐 ①", base: 3 },
   { key: "act3-1", scene: "act3", label: "캡슐 ②", base: 3 },
   { key: "act3-2", scene: "act3", label: "캡슐 ③", base: 2.5 }
@@ -89,27 +89,19 @@ const TEAMS = [
   { name: "다시다 조", skill: 1.3, people: ["임소율", "조건우", "배나래", "홍지안", "서유진"] }
 ];
 const TALK = {
-  room1: ["안내문에 1953년 설탕이 최초래요", "액자 연도 순서대로 걸어 볼게요", "제 메모엔 비밀번호가 일곱 글자래요"],
-  room2: ["화이트보드 미션 끝이 지워졌어요", "사업보국 액자가 힌트 같아요", "포스트잇 차별화는 ONLYONE 상자죠?"],
-  room3: ["레시피 카드: 즉석밥, 만두, 조미료, 설탕 순서", "선반 칸 번호를 불러 줄게요", "햇반은 3번 칸이에요"],
-  room4: ["현미경에 아미노산 이름이 여러 개 보여요", "탱크 글자 B, I, O 나왔어요", "아미노산 몇 개인지 세어 볼게요"],
-  room5: ["호칭은 이름 뒤에 님!", "HMR은 가정간편식", "용어 카드 다 뒤집었어요"],
-  act2: ["출입 기록 9시 10분에 한○○", "8시 50분 퇴근이라던 사람이 이상해요", "저는 한햇님에 한 표"],
+  room1: ["제 메모엔 제분이 설탕 5년 뒤래요", "그럼 제분 1958년이네요", "백설에서 10년 뒤가 다시다예요"],
+  room2: ["A는 품질안전팀 메모랑 안 맞아요", "새 포장 2주면 행사 못 맞추죠", "D는 안 알리니까 팀장님 메모에 걸려요"],
+  room3: ["메인은 미국 만두 1위래요", "국물은 장류 말고 조미료!", "디저트는 설탕 브랜드로요"],
+  room4: ["홀수 탱크가 라이신이래요", "트립토판은 32도까지예요", "⑧번이 34도라 벗어났어요"],
+  room5: ["서준님은 4시부터 된대요", "현우님은 5시부터 화상회의", "회의실 4시~4시 반 비어 있어요"],
+  act2: ["TF-30이 9시 10분에 보관함을 열었어요", "TF는 30주년 TF예요", "저는 한햇님에 한 표"],
   "act3-0": ["A: 햇반, 비비고, 다시다, 쁘띠첼 순서예요", "B: 햇반은 빨강이에요", "C: 빨강은 4번"],
   "act3-1": ["A: 핀 5번이 일본이에요", "B: 일본 치바 공장이 제일 최근", "C: 공장 지은 나라 먼저래요"],
   "act3-2": ["비전 문장 순서대로 끼우래요", "건강, 즐거움, 편리!", "정직은 함정이에요"]
 };
-const HELP_TEXT = {
-  room1: "액자 속 사건을 오래된 순서대로 생각해 보세요.", room2: "사업보국 뜻을 다시 읽어 보세요. 누구에게 보답하나요?",
-  room3: "레시피 카드 순서대로 담고 선반 칸 번호를 읽어 보세요.", room4: "탱크 글자에 현미경 속 아미노산 개수를 붙여 보세요.",
-  room5: "고친 호칭에 공통으로 들어간 글자를 보세요.", act2: "증언 시간과 출입 기록 시간이 안 맞는 사람을 찾아보세요.",
-  "act3-0": "순서 → 색 → 숫자로 두 번 바꿔 보세요.", "act3-1": "공장이 들어간 카드 중 가장 최근 것부터예요.", "act3-2": "회의실 화이트보드의 비전 문장을 떠올려 보세요."
-};
 
 /* ── 기록 ── */
 const stats = {};
-const sosLog = [];   // { id, team, key, at, helpedAt, helper, thanked, outcome }
-let messagesSeen = 0;
 
 async function main() {
   log(`시뮬레이션 시작: 게임 1분 = ${G / 1000}초, 난수 ${SEED}`);
@@ -125,53 +117,18 @@ async function main() {
       const pid = crypto.randomUUID(), secret = crypto.randomUUID() + crypto.randomUUID();
       const r = await rpc("join_session", { p_code: sess.code, p_team: T.name, p_player: pid, p_secret: secret, p_name: T.people[i] });
       team.id = r.team.id;
-      const m = { pid, secret, name: T.people[i], idx: i, envoy: i === T.people.length - 1 };
+      const m = { pid, secret, name: T.people[i], idx: i };
       m.pres = await presence(sess.id, { pid, name: m.name, team: team.id, teamName: T.name, since: Date.now(), scene: "prologue" });
       team.members.push(m);
       await sleep(80);
     }
-    stats[T.name] = { sos: 0, sosHelped: 0, hintsTaken: 0, helpsSent: 0, thanksGot: 0, wrongVotes: 0, spotTimes: {} };
+    stats[T.name] = { hintsTaken: 0, thoughtThrough: 0, wrongVotes: 0, spotTimes: {} };
     teams.push(team);
     log(`${T.name} 5명 입장 (실시간 접속 ${team.members.filter((m) => m.pres).length}/5)`);
   }
 
   const apply = (team, m, ops) => rpc("team_apply", { p_team: team.id, p_player: m.pid, p_secret: m.secret, p_ops: ops });
   const post = (m, scope, body, meta = {}) => rpc("post_message", { p_player: m.pid, p_secret: m.secret, p_scope: scope, p_body: body, p_meta: meta });
-
-  /* 메시지 감시: SOS → 상생 대사가 도와주기, 도움 → 받은 조가 고마워요 */
-  const inbox = [];
-  let stop = false;
-  (async function poll() {
-    while (!stop) {
-      try {
-        const rows = await select(`messages?session_id=eq.${sess.id}&id=gt.${messagesSeen}&order=id`);
-        rows.forEach((r) => { messagesSeen = Math.max(messagesSeen, r.id); inbox.push(r); onMessage(r); });
-      } catch (e) { /* 다음에 다시 */ }
-      await sleep(Math.min(1000, G / 3));
-    }
-  })();
-
-  function onMessage(msg) {
-    if (msg.scope !== "sos") return;
-    teams.forEach((team) => {
-      if (team.id === msg.team_id) return;
-      const envoy = team.members.find((m) => m.envoy);
-      if (!team.solved.has(msg.meta.key)) return;             // 우리도 못 푼 곳은 도울 수 없음
-      if (team.finished && rand() < 0.5) return;               // 끝난 조는 반쯤 엔딩 편지 쓰느라 못 봄
-      if (rand() > 0.75) return;                               // 자기 게임에 바빠서 놓침 (25%)
-      const delay = 0.3 + rand() * 1.2;                        // 읽고 답 쓰는 데 0.3~1.5분
-      setTimeout(async () => {
-        const s = sosLog.find((x) => x.id === msg.id);
-        if (s && s.helpedAt) return;                          // 이미 누가 도와줬으면 겹치지 않게
-        try {
-          await post(envoy, "help", HELP_TEXT[msg.meta.key], { to: msg.team_id, toTeam: msg.meta.team, key: msg.meta.key, sos: msg.id });
-          stats[team.name].helpsSent++;
-          if (s && !s.helpedAt) { s.helpedAt = Date.now(); s.helper = team.name; }
-          log(`  🤝 ${team.name} 상생 대사 ${envoy.name} → ${msg.meta.team} (${msg.meta.key})`);
-        } catch (e) { log("  도와주기 실패", e.message); }
-      }, delay * G);
-    });
-  }
 
   /* 한 조의 게임 진행 */
   async function playTeam(team) {
@@ -188,56 +145,22 @@ async function main() {
       }
       const start = Date.now();
       let need = sp.base * team.skill * Math.exp(gauss() * 0.35);
-      let asked = null, hinted = false;
+      let decided = false;
       const el = () => gmin(Date.now() - start);
       while (el() < need) {
         await sleepG(0.4 + rand() * 0.3);
-        // 조원 여러 명이 동시에 퍼즐 판을 만짐 (서로 다른 칸)
+        // 조원 여러 명이 동시에 퍼즐 판의 서로 다른 칸을 표시 (일정표·탱크 점검판처럼)
         const movers = team.members.filter(() => rand() < 0.4);
         await Promise.all(movers.map((m) => {
           team.local.moves[m.idx] = (team.local.moves[m.idx] || 0) + 1;
           return apply(team, m, [{ op: "set", p: ["puzzle", sp.key, "m" + m.idx], v: team.local.moves[m.idx] }]).catch(() => {});
         }));
-        if (rand() < 0.35) post(any(), "team", pick(TALK[sp.key])).catch(() => {});
-        // 막힘: 3.5분이 지나도 못 풀면 SOS(60%) 또는 힌트
-        if (!asked && !hinted && el() > 3.5 && need - el() > 0.8) {
-          if (rand() < 0.6) {
-            const toHost = !teams.some((o) => o !== team && o.solved.has(sp.key)); // 앞선 조가 없으면 진행자에게
-            const r = await post(any(), "sos", "막혔어요. 생각할 방향을 알려 주세요!", { key: sp.key, toHost }).then(() => true).catch(() => false);
-            if (r) {
-              await sleep(300);
-              const mine = (await select(`messages?session_id=eq.${sess.id}&scope=eq.sos&team_id=eq.${team.id}&order=id.desc&limit=1`))[0];
-              asked = { id: mine.id, at: Date.now(), toHost, hostIn: 1 + rand() };
-              sosLog.push({ id: mine.id, team: team.name, key: sp.key, at: Date.now(), toHost });
-              S.sos++;
-              log(`🆘 ${team.name} ${sp.label}에서 SOS`);
-            }
-          } else {
-            hinted = true;
-            await takeHint(team, sp, S);
-            need = el() + (need - el()) * 0.7;
-          }
-        }
-        if (asked && !asked.done) {
-          const help = inbox.find((x) => x.scope === "help" && x.meta.sos == asked.id);
-          if (!help && asked.toHost && gmin(Date.now() - asked.at) > asked.hostIn) { // 진행자가 와서 방향을 알려 줌
-            asked.done = true;
-            const s = sosLog.find((x) => x.id === asked.id); s.helpedAt = Date.now(); s.helper = "진행자"; s.outcome = "진행자 도움";
-            need = el() + (need - el()) * 0.55;
-            log(`   🧑‍🏫 진행자가 ${team.name}를 도움 (${sp.label})`);
-          } else if (help) {
-            asked.done = true;
-            const thanker = any();
-            await rpc("thank_help", { p_player: thanker.pid, p_secret: thanker.secret, p_msg: help.id }).catch(() => {});
-            S.sosHelped++;
-            const s = sosLog.find((x) => x.id === asked.id); s.thanked = true; s.outcome = "도움 받음";
-            need = el() + (need - el()) * 0.55;               // 방향을 알게 돼서 남은 시간 45% 줄어듦
-            log(`   👍 ${team.name}이 ${help.meta.team}에게 '도움 됐어요'`);
-          } else if (gmin(Date.now() - asked.at) > 2.5) {    // 2.5분 기다려도 없으면 힌트
-            asked.done = true;
-            const s = sosLog.find((x) => x.id === asked.id); s.outcome = "답 없어 힌트";
-            if (!hinted) { hinted = true; await takeHint(team, sp, S); need = el() + (need - el()) * 0.7; }
-          }
+        if (rand() < 0.45) post(any(), "team", pick(TALK[sp.key])).catch(() => {});
+        // 4분이 지나도 못 풀면: 힌트를 열거나(빨라지지만 +1분), 힌트 없이 더 생각한다(생각왕)
+        if (!decided && el() > 4 && need - el() > 0.8) {
+          decided = true;
+          if (rand() < 0.55) { await takeHint(team, sp, S); need = el() + (need - el()) * 0.6; }
+          else { S.thoughtThrough++; log(`🤔 ${team.name} ${sp.label} 힌트 없이 더 생각하기`); }
         }
       }
       // 2막: 5명 투표 (가끔 첫 투표가 엇갈려 틀림)
@@ -275,33 +198,31 @@ async function main() {
 
   // 진행자 공지 몇 개
   setTimeout(() => rpc("host_post", { p_session: sess.id, p_key: sess.host_key, p_body: "시작합니다! 조원과 단서를 나눠 보세요." }), 0.2 * G);
-  setTimeout(() => rpc("host_post", { p_session: sess.id, p_key: sess.host_key, p_body: "막힌 조는 힌트 창에서 SOS를 보내 보세요. 도와준 조는 −30초!" }), 12 * G);
+  setTimeout(() => rpc("host_post", { p_session: sess.id, p_key: sess.host_key, p_body: "단서를 한 장도 빼먹지 말고 모두 합쳐 보세요." }), 12 * G);
 
   await Promise.all(teams.map(playTeam));
   await sleepG(2.5);
-  stop = true;
 
   /* ── 결과 ── */
-  const rows = await select(`teams?session_id=eq.${sess.id}&select=id,name,state,ver,help_count,bonus,thanks`);
+  const rows = await select(`teams?session_id=eq.${sess.id}&select=id,name,state,ver`);
   const firsts = {};
   rows.forEach((t) => Object.entries(t.state.clearedAt || {}).forEach(([k, at]) => { if (!firsts[k] || at < firsts[k].at) firsts[k] = { at, team: t.name }; }));
   const result = rows.map((t) => {
     const s = t.state, raw = gmin(s.end - s.start);
-    const score = raw + (s.penalty || 0) / 60 - (t.bonus || 0) / 60; // 벌점·보너스 60초 = 게임 1분
-    return { t, s, raw, score, medals: Object.values(firsts).filter((f) => f.team === t.name).length };
+    const score = raw + (s.penalty || 0) / 60; // 벌점 60초 = 게임 1분
+    const hl = s.hintLv || {}, clean = Object.keys(s.clearedAt || {}).filter((k) => !hl[k]).length;
+    return { t, s, raw, score, clean, medals: Object.values(firsts).filter((f) => f.team === t.name).length };
   }).sort((a, b) => a.score - b.score);
 
   const team = (n) => teams.find((x) => x.name === n);
   console.log("\n════════ 결과 (게임 분 기준) ════════");
-  console.log("순위  조          걸린시간  벌점   상생보너스  최종기록  첫탈출메달  힌트  SOS(받음)  도와줌(고마워요)");
+  console.log("순위  조          걸린시간  벌점  최종기록  첫탈출메달  힌트  힌트없이 푼 곳");
   result.forEach((r, i) => {
-    const S = stats[r.t.name];
-    console.log(`${i + 1}위   ${r.t.name.padEnd(8)}  ${r.raw.toFixed(1).padStart(6)}분  +${((r.s.penalty || 0) / 60).toFixed(0)}분  −${((r.t.bonus || 0) / 60).toFixed(1)}분      ${r.score.toFixed(1).padStart(6)}분  ${String(r.medals).padStart(6)}개    ${String(r.s.hintsUsed || 0).padStart(3)}   ${S.sos}(${S.sosHelped})       ${r.t.help_count}(${r.t.thanks})`);
+    console.log(`${i + 1}위   ${r.t.name.padEnd(8)}  ${r.raw.toFixed(1).padStart(6)}분  +${((r.s.penalty || 0) / 60).toFixed(0)}분  ${r.score.toFixed(1).padStart(6)}분  ${String(r.medals).padStart(6)}개    ${String(r.s.hintsUsed || 0).padStart(3)}   ${r.clean}/9`);
   });
-  const answered = sosLog.filter((s) => s.helpedAt);
-  console.log(`\nSOS ${sosLog.length}건 중 도움 받음 ${answered.length}건 (${sosLog.length ? Math.round((answered.length / sosLog.length) * 100) : 0}%)`);
-  if (answered.length) console.log(`도움이 오기까지 평균 ${(answered.reduce((a, s) => a + gmin(s.helpedAt - s.at), 0) / answered.length).toFixed(1)}분`);
-  sosLog.forEach((s) => console.log(`  - ${s.team} ${s.key}: ${s.helpedAt ? `${s.helper}가 ${gmin(s.helpedAt - s.at).toFixed(1)}분 만에 도움` : "아무도 못 도움"} → ${s.outcome || "진행 중 해결"}`));
+  const think = result.slice().sort((a, b) => (b.clean - a.clean) || (a.score - b.score))[0];
+  console.log(`\n시상 후보: 최단 기록 ${result[0].t.name} · 생각왕 ${think.t.name} (힌트 없이 ${think.clean}곳) · 첫 탈출 메달왕 ${result.slice().sort((a, b) => b.medals - a.medals)[0].t.name}`);
+  console.log("구간별 평균 (게임 분): " + SPOTS.map((sp) => `${sp.label} ${(TEAMS.reduce((a, T) => a + (stats[T.name].spotTimes[sp.key] || 0), 0) / TEAMS.length).toFixed(1)}`).join(" · "));
 
   // 동시 쓰기 확인: 조원 5명이 같은 순간에 써도 값이 사라지지 않았는지
   let lost = 0, checked = 0;
