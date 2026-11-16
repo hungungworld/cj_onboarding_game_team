@@ -42,28 +42,30 @@
     if (!s) { localStorage.removeItem(KEY); H = null; return renderCreate(); }
     const link = `${location.origin}${location.pathname.replace(/host\.html$/, "")}?s=${H.code}`;
     root.innerHTML = `
-      <section class="h-top">
-        <div class="card h-code">
-          <p class="eyebrow">${esc(H.title || "이번 회차")} ${s.status === "ended" ? "· 종료됨" : ""}</p>
-          <p class="h-big">${esc(H.code)}</p>
-          <p>참가자 화면에서 <b>입장 코드</b>에 이 숫자를 넣어요.</p>
-          <p class="h-link"><a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a>
-            <button class="btn small" id="h-copy">${ic("ti-copy")} 링크 복사</button></p>
+      <div class="h-layout">
+        <section class="card h-card h-code">
+          <h2 class="panel-title">${ic("ti-key")} 입장 코드<small class="panel-meta">${esc(H.title || "이번 회차")}${s.status === "ended" ? " · 종료됨" : ""}</small></h2>
+          <div class="h-body">
+            <p class="h-big">${esc(H.code)}</p>
+            <p>참가자 화면에서 <b>입장 코드</b>에 이 숫자를 넣어요.</p>
+            <p class="h-link"><a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a>
+              <button class="btn small" id="h-copy">${ic("ti-copy")} 링크 복사</button></p>
+          </div>
           <p class="h-stat" id="h-stat"></p>
-        </div>
-        <form class="card h-notice" id="h-notice">
+        </section>
+        <form class="card h-card h-notice" id="h-notice">
           <h2 class="panel-title">${ic("ti-speakerphone")} 전체 공지</h2>
-          <label class="field"><span class="sr-only">공지 내용</span><textarea id="h-msg" rows="3" maxlength="300" placeholder="예: 10분 남았어요! 힌트 없이 끝까지 생각해 보세요."></textarea></label>
-          <div class="h-quick">${["시작합니다! 조원과 단서를 나눠 보세요.", "10분 남았어요!", "단서를 한 장도 빼먹지 말고 모두 합쳐 보세요.", "지금 1위 조가 캡슐에 도착했어요!"]
-            .map((q) => `<button type="button" class="btn small" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
-          <div class="row"><button class="btn primary">보내기</button></div>
+          <div class="h-body">
+            <label class="field"><span class="sr-only">공지 내용</span><textarea id="h-msg" rows="3" maxlength="300" placeholder="예: 10분 남았어요! 힌트 없이 끝까지 생각해 보세요."></textarea></label>
+            <div class="h-quick">${["시작합니다! 조원과 단서를 나눠 보세요.", "10분 남았어요!", "단서를 한 장도 빼먹지 말고 모두 합쳐 보세요.", "지금 1위 조가 캡슐에 도착했어요!"]
+              .map((q) => `<button type="button" class="btn small" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+          </div>
+          <div class="h-actions"><button class="btn primary">${ic("ti-send")} 보내기</button></div>
         </form>
-      </section>
-      <section class="h-grid">
-        <div class="card"><h2 class="panel-title">${ic("ti-trophy")} 조별 현황</h2><div id="h-board"></div></div>
-        <div class="card"><h2 class="panel-title">${ic("ti-world")} 전체 대화</h2><ul class="msgs h-feed" id="h-feed"></ul></div>
-      </section>
-      <section class="card"><h2 class="panel-title">${ic("ti-mail-opened")} 100주년 메시지 벽</h2><div class="letter-wall" id="h-wall"></div></section>
+        <section class="card h-card"><h2 class="panel-title">${ic("ti-trophy")} 조별 현황</h2><div class="h-body" id="h-board"></div></section>
+        <section class="card h-card"><h2 class="panel-title">${ic("ti-world")} 전체 대화</h2><ul class="msgs h-feed h-body" id="h-feed"></ul></section>
+        <section class="card h-card h-wide"><h2 class="panel-title">${ic("ti-mail-opened")} 100주년 메시지 벽</h2><div class="letter-wall h-body" id="h-wall"></div></section>
+      </div>
       <section class="h-foot">
         <button class="btn" id="h-new">${ic("ti-plus")} 새 회차 열기</button>
         <button class="btn" id="h-end" ${s.status === "ended" ? "disabled" : ""}>${ic("ti-flag")} 이 회차 끝내기 (새 입장 막기)</button>
