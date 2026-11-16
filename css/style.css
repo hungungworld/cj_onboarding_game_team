@@ -951,6 +951,8 @@ body.is-intro .modal { background: rgba(10,8,6,.55); }
   border: none; border-radius: 999px; background: var(--red-ink); color: #fff; font: inherit; font-weight: 700; cursor: pointer; box-shadow: var(--soft-shadow); }
 .chat-fab[hidden] { display: none; }
 .chat-fab .ti { font-size: 22px; }
+/* 오른쪽 아래 안내(막힘 알림)는 소통 버튼과 같은 자리라, 버튼이 보이면 그 위로 올린다 (버튼 52px + 간격 8px) */
+body:has(.chat-fab:not([hidden])) .nudge { bottom: calc(var(--s2) + 52px + var(--s1)); }
 .chat-fab:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .chat-badge { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--yellow);
   color: var(--ink); font-size: 12px; display: grid; place-items: center; }
